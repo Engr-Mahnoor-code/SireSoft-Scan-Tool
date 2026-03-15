@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Upload Receipt — ReceiptIQ{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/upload.css' %}" />
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">Scan Receipt</h1>
+  <p class="page-subtitle">
+    Upload a receipt image or PDF to extract data automatically.
+  </p>
+</div>
+
+<div class="upload-layout">
+  <!-- Upload Panel -->
+  <div class="card upload-card">
+    <div id="drop-zone" class="drop-zone">
+      <div class="drop-zone-icon">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="48"
+          height="48"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="17 8 12 3 7 8" />
+          <line x1="12" y1="3" x2="12" y2="15" />
+        </svg>
+      </div>
+      <p class="drop-zone-text">Drag &amp; drop your receipt here</p>
+      <p class="drop-zone-hint">or</p>
+      <label for="file-input" class="btn">Choose File</label>
+      <input id="file-input" type="file" accept="image/*,.pdf" hidden />
+      <p class="drop-zone-formats">
+        JPG, PNG, WEBP, GIF, PDF &middot; Max 10 MB
+      </p>
+    </div>
+
+    <div id="file-preview" class="file-preview hidden">
+      <img id="preview-img" src="" alt="Receipt preview" />
+    </div>
+
+    <div id="file-info" class="file-info hidden">
+      <span id="file-name" class="file-name"></span>
+      <button id="clear-file" class="btn-icon" title="Remove">&times;</button>
+    </div>
+
+    <button id="analyze-btn" class="btn btn-full btn-analyze" disabled>
+      <span class="btn-label">Analyze Receipt</span>
+      <span class="btn-spinner hidden"></span>
+    </button>
+
+    <div id="upload-error" class="alert alert-error hidden"></div>
+  </div>
+
+  <!-- Results Panel -->
+  <div id="results-panel" class="results-panel hidden">
+    <!-- Establishment -->
+    <div class="card result-card">
+      <h2 class="card-title">Establishment</h2>
+      <div class="info-grid">
+        <div class="info-item">
+          <span class="info-label">Name</span>
+          <span class="info-value" id="res-vendor"></span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Date</span>
+          <span class="info-value" id="res-date"></span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Time</span>
+          <span class="info-value" id="res-time"></span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Address</span>
+          <span class="info-value" id="res-address"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Items -->
+    <div class="card result-card">
+      <h2 class="card-title">Items</h2>
+      <div class="table-wrapper">
+        <table class="items-table">
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>Qty</th>
+              <th>Unit Price</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody id="res-items"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Bill Summary -->
+    <div class="card result-card">
+      <h2 class="card-title">Bill Summary</h2>
+      <div class="summary-list" id="res-summary"></div>
+    </div>
+
+    <!-- Insights -->
+    <div class="card result-card" id="insights-card">
+      <h2 class="card-title">Insights</h2>
+      <ul class="insights-list" id="res-insights"></ul>
+    </div>
+
+    <a id="view-detail-link" href="#" class="btn btn-outline btn-full"
+      >View Full Receipt</a
+    >
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/upload.js' %}"></script>
+{% endblock %}

@@ -1,0 +1,2 @@
+# Ignore all Django HTML templates — formatting breaks {% %} template tags
+templates/

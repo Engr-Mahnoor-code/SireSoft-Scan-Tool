@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Login — ReceiptIQ{% endblock %}
+{% block content %}
+<div class="auth-page">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <img src="{% static 'images/header-logo.png' %}" alt="ReceiptIQ" />
+    </div>
+    <h1 class="auth-title">Welcome Back</h1>
+    <p class="auth-subtitle">Sign in to your ReceiptIQ account</p>
+
+    <form method="post" class="auth-form">
+      {% csrf_token %} {% for field in form %}
+      <div class="form-group">
+        <label class="form-label" for="{{ field.id_for_label }}"
+          >{{ field.label }}</label
+        >
+        {{ field }} {% if field.errors %}
+        <span class="field-error">{{ field.errors|join:", " }}</span>
+        {% endif %}
+      </div>
+      {% endfor %} {% if form.non_field_errors %}
+      <div class="form-errors">
+        {% for error in form.non_field_errors %}
+        <p class="field-error">{{ error }}</p>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <button type="submit" class="btn btn-full">Sign In</button>
+    </form>
+
+    <p class="auth-footer">
+      Don't have an account? <a href="{% url 'accounts:register' %}">Sign Up</a>
+    </p>
+  </div>
+</div>
+{% endblock %}

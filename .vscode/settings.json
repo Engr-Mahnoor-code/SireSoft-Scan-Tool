@@ -1,0 +1,16 @@
+{
+  // Disable all formatters for Django HTML templates to prevent
+  // collapsing of {% %} template tags which breaks Django's parser.
+  "[html]": {
+    "editor.formatOnSave": false,
+    "editor.defaultFormatter": null
+  },
+  "files.associations": {
+    "*.html": "django-html"
+  },
+  "[django-html]": {
+    "editor.formatOnSave": false,
+    "editor.defaultFormatter": null
+  },
+  "prettier.disableLanguages": ["html", "django-html"]
+}

@@ -1,0 +1,13 @@
+/* upload.css — Additional styles specific to the upload page */
+
+.upload-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+}
+
+.file-preview img {
+    background: var(--bg-input);
+}

@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ receipt.vendor_name|default:"Receipt" }} — ReceiptIQ{% endblock %}
+{% block content %}
+<div class="page-header page-header-row">
+  <div>
+    <a href="{% url 'receipts:history' %}" class="back-link"
+      >&larr; Back to History</a
+    >
+    <h1 class="page-title">
+      {{ receipt.vendor_name|default:"Receipt Detail" }}
+    </h1>
+    <p class="page-subtitle">
+      Scanned on {{ receipt.created_at|date:"F d, Y \a\t H:i" }}
+    </p>
+  </div>
+</div>
+
+{% if receipt.extracted_data %} {% with data=receipt.extracted_data %}
+
+<div class="results-panel results-panel-full">
+  <!-- Establishment -->
+  <div class="card result-card">
+    <h2 class="card-title">Establishment</h2>
+    <div class="info-grid">
+      <div class="info-item">
+        <span class="info-label">Name</span>
+        <span class="info-value"
+          >{{ data.establishment.name|default:"—" }}</span
+        >
+      </div>
+      <div class="info-item">
+        <span class="info-label">Date</span>
+        <span class="info-value"
+          >{{ data.establishment.date|default:"—" }}</span
+        >
+      </div>
+      <div class="info-item">
+        <span class="info-label">Time</span>
+        <span class="info-value"
+          >{{ data.establishment.time|default:"—" }}</span
+        >
+      </div>
+      <div class="info-item">
+        <span class="info-label">Address</span>
+        <span class="info-value"
+          >{{ data.establishment.address|default:"—" }}</span
+        >
+      </div>
+    </div>
+  </div>
+
+  <!-- Items -->
+  {% if data.items %}
+  <div class="card result-card">
+    <h2 class="card-title">Items</h2>
+    <div class="table-wrapper">
+      <table class="items-table">
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th>Qty</th>
+            <th>Unit Price</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in data.items %}
+          <tr>
+            <td>{{ item.name|default:"—" }}</td>
+            <td>{{ item.quantity|default:"—" }}</td>
+            <td>{{ item.unit_price|default:"—" }}</td>
+            <td>{{ item.total|default:"—" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Bill Summary -->
+  {% if data.bill_summary %}
+  <div class="card result-card">
+    <h2 class="card-title">Bill Summary</h2>
+    <div class="summary-list">
+      {% if data.bill_summary.subtotal %}
+      <div class="summary-row">
+        <span>Subtotal</span><span>{{ data.bill_summary.subtotal }}</span>
+      </div>
+      {% endif %} {% if data.bill_summary.tax %}
+      <div class="summary-row">
+        <span>Tax</span><span>{{ data.bill_summary.tax }}</span>
+      </div>
+      {% endif %} {% if data.bill_summary.discount %}
+      <div class="summary-row">
+        <span>Discount</span><span>{{ data.bill_summary.discount }}</span>
+      </div>
+      {% endif %} {% if data.bill_summary.tip %}
+      <div class="summary-row">
+        <span>Tip</span><span>{{ data.bill_summary.tip }}</span>
+      </div>
+      {% endif %}
+      <div class="summary-row summary-total">
+        <span>Grand Total</span><span>{{ data.bill_summary.grand_total }}</span>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Insights -->
+  {% if data.insights %}
+  <div class="card result-card">
+    <h2 class="card-title">Insights</h2>
+    <ul class="insights-list">
+      {% for insight in data.insights %}
+      <li>{{ insight }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+</div>
+{% endwith %} {% else %}
+<div class="card">
+  <p class="text-muted">No extracted data available for this receipt.</p>
+</div>
+{% endif %} {% endblock %}
