@@ -1,0 +1,291 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ReceiptIQ by SireSoft | Intelligent Document Processing</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+    <style>
+      :root {
+        --bg-deep: #032552;       
+        --bg-card: #073b82;       
+        --accent-main: #3b82f6;   
+        --accent-hover: #2563eb;  
+        --text-main: #ffffff;     
+        --text-muted: #94a3b8;    
+        --border-color: #1a4f9e;  
+        --success: #22c55e;
+        --error: #ef4444;
+      }
+
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+
+      body {
+        font-family: "Inter", sans-serif;
+        background-color: var(--bg-deep);
+        color: var(--text-main);
+        line-height: 1.6;
+        overflow-x: hidden;
+      }
+
+      h1, h2, h3, h4 { font-family: "Montserrat", sans-serif; }
+      .container { max-width: 950px; margin: 0 auto; padding: 4rem 2rem; }
+      header { text-align: center; margin-bottom: 3.5rem; }
+
+      .brand-logo {
+        max-width: 250px; 
+        height: auto;
+        margin-bottom: 2rem;
+        filter: brightness(0) invert(1);
+      }
+
+      header h1 { font-size: 3.5rem; font-weight: 800; margin-bottom: 0.5rem; }
+      header h1 span { color: var(--accent-main); }
+      header p { color: var(--text-muted); font-size: 1.15rem; max-width: 650px; margin: 0 auto; }
+
+      .upload-card {
+        background: var(--bg-card);
+        border: 2px dashed #3065b5;
+        border-radius: 16px;
+        padding: 4.5rem 2rem;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        margin-bottom: 2.5rem;
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+      }
+
+      .upload-card:hover { border-color: var(--accent-main); background: #09479e; }
+      .upload-icon { font-size: 4rem; color: var(--accent-main); margin-bottom: 1.2rem; }
+
+      #preview-container { display: none; margin-top: 1rem; }
+      #preview-img, #preview-pdf-frame {
+        max-width: 100%;
+        max-height: 400px;
+        border-radius: 8px;
+        border: 2px solid var(--accent-main);
+        display: none;
+        margin: 0 auto;
+      }
+      #preview-pdf-frame { width: 100%; height: 400px; background: white; }
+
+      .btn-analyze {
+        background: var(--accent-main);
+        color: #ffffff;
+        border: none;
+        padding: 1.1rem 3.5rem;
+        border-radius: 8px;
+        font-size: 1.1rem;
+        font-weight: 600;
+        cursor: pointer;
+        display: none;
+        transition: 0.3s;
+        box-shadow: 0 8px 20px rgba(59, 130, 246, 0.3);
+      }
+      .btn-analyze:hover { background: var(--accent-hover); transform: translateY(-2px); }
+
+      #results-section { display: none; margin-top: 3.5rem; animation: fadeInUp 0.8s ease; }
+      .results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+      .card { background: var(--bg-card); border-radius: 12px; padding: 2rem; border: 1px solid var(--border-color); }
+      .card h3 { color: var(--accent-main); font-size: 1.1rem; margin-bottom: 1.5rem; text-transform: uppercase; display: flex; align-items: center; gap: 12px; }
+      
+      .item-table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+      .item-table th { text-align: left; color: var(--text-muted); padding-bottom: 12px; border-bottom: 1px solid var(--border-color); }
+      .item-table td { padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+
+      .grand-total { font-size: 2.2rem; font-weight: 700; border-top: 2px solid var(--border-color); padding-top: 1.5rem; margin-top: 1.5rem; display: flex; justify-content: space-between; }
+
+      #loader { display: none; text-align: center; padding: 4rem; }
+      .spinner { width: 50px; height: 50px; border: 4px solid rgba(59, 130, 246, 0.2); border-top: 4px solid var(--accent-main); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 1.5rem; }
+
+      @keyframes spin { 100% { transform: rotate(360deg); } }
+      @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+      @media (max-width: 768px) { .results-grid { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <img src="{% static 'receipts/header-logo.png' %}" alt="SireSoft Logo" class="brand-logo" />
+        <h1>Receipt<span>IQ</span></h1>
+        <p>AI-Powered Precision Document Processing by SireSoft.</p>
+      </header>
+
+      <div class="upload-card" id="drop-zone" onclick="document.getElementById('file-input').click()">
+        <input type="file" id="file-input" hidden accept="image/*,application/pdf" />
+        <div id="upload-prompt">
+          <div class="upload-icon"><i class="fas fa-file-invoice"></i></div>
+          <h3>Secure Document Upload</h3>
+          <p>Click to browse or drag & drop files here.</p>
+        </div>
+        <div id="preview-container">
+          <img id="preview-img" src="" alt="Preview" />
+          <iframe id="preview-pdf-frame"></iframe>
+        </div>
+      </div>
+
+      <center>
+        <button class="btn-analyze" id="analyze-btn" onclick="analyzeReceipt()">
+          <i class="fas fa-microchip"></i> Initialize AI Extraction
+        </button>
+      </center>
+
+      <div id="loader">
+        <div class="spinner"></div>
+        <p style="color: var(--accent-main); font-weight: 600;">AI EXTRACTION IN PROGRESS...</p>
+      </div>
+
+      <div id="results-section">
+        <div class="results-grid">
+          <!-- Vendor Info -->
+          <div class="card">
+            <h3><i class="fas fa-building"></i> Vendor Details</h3>
+            <div id="res-name" style="font-size: 1.8rem; font-weight: 700;">---</div>
+            <p id="res-location" style="color: var(--text-muted); margin-top: 10px;">---</p>
+            <div style="margin-top: 1.5rem; font-size: 0.9rem;">
+                <div>Date: <span id="res-date" style="color: #fff;">---</span></div>
+                <div style="margin-top:5px;">Invoice No: <span id="res-no" style="color: #fff;">---</span></div>
+            </div>
+          </div>
+
+          <!-- Insights -->
+          <div class="card">
+            <h3><i class="fas fa-shield-check"></i> Audit Insights</h3>
+            <div id="res-verification" style="font-weight: 600; margin-bottom: 20px;">---</div>
+            <div style="background: rgba(59,130,246,0.1); padding: 1rem; border-radius: 8px; border-left: 4px solid var(--accent-main);">
+                <small style="color: var(--accent-main); font-weight: 700; display: block;">PEAK EXPENSE</small>
+                <strong id="res-expensive">---</strong>
+            </div>
+          </div>
+
+          <!-- Items Table -->
+          <div class="card" style="grid-column: span 2">
+            <h3><i class="fas fa-list-alt"></i> Itemized Breakdown</h3>
+            <table class="item-table">
+              <thead>
+                <tr><th>Description</th><th>Qty</th><th>Unit Price</th><th style="text-align: right">Total</th></tr>
+              </thead>
+              <tbody id="res-items-body"></tbody>
+            </table>
+            <div class="grand-total">
+                <span style="font-size: 1.1rem; color: var(--text-muted);">TOTAL AMOUNT</span>
+                <span id="res-grand-total">---</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 2rem;">
+            <button class="btn-analyze" id="btn-save-db" style="display: inline-block; background: #22c55e;">
+                <i class="fas fa-check-circle"></i> Data Saved to PostgreSQL
+            </button>
+            <button class="btn-analyze" style="display: inline-block; background: transparent; border: 1px solid var(--border-color);" onclick="location.reload()">
+                <i class="fas fa-redo"></i> Scan New
+            </button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const fileInput = document.getElementById("file-input");
+      const analyzeBtn = document.getElementById("analyze-btn");
+      const loader = document.getElementById("loader");
+      const resultsSection = document.getElementById("results-section");
+
+      // 1. Preview Logic
+      fileInput.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        document.getElementById("upload-prompt").style.display = "none";
+        document.getElementById("preview-container").style.display = "block";
+        analyzeBtn.style.display = "inline-block";
+
+        const url = URL.createObjectURL(file);
+        if (file.type === "application/pdf") {
+          document.getElementById("preview-img").style.display = "none";
+          document.getElementById("preview-pdf-frame").style.display = "block";
+          document.getElementById("preview-pdf-frame").src = url;
+        } else {
+          document.getElementById("preview-pdf-frame").style.display = "none";
+          document.getElementById("preview-img").style.display = "block";
+          document.getElementById("preview-img").src = url;
+        }
+      };
+
+      // 2. MAIN AI EXTRACTION FUNCTION
+      async function analyzeReceipt() {
+        const file = fileInput.files[0];
+        if (!file) return;
+
+        // UI reset
+        analyzeBtn.style.display = "none";
+        loader.style.display = "block";
+        resultsSection.style.display = "none";
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+          // Backend call
+          const response = await fetch('/upload-receipt/', {
+            method: 'POST',
+            body: formData
+          });
+
+          const data = await response.json();
+          
+          if (data.error) {
+              alert("Error: " + data.error);
+          } else {
+              renderResults(data);
+          }
+
+        } catch (error) {
+          alert("Connection Error: " + error.message);
+        } finally {
+          // YE LINE LOADING KO BAND KARTI HAI
+          loader.style.display = "none";
+          analyzeBtn.style.display = "inline-block";
+        }
+      }
+
+      // 3. Render results to DOM
+      function renderResults(data) {
+        document.getElementById("res-name").innerText = data.establishment?.name || "Unknown";
+        document.getElementById("res-location").innerText = data.establishment?.location || "N/A";
+        document.getElementById("res-date").innerText = data.establishment?.date || "N/A";
+        document.getElementById("res-no").innerText = data.establishment?.receipt_number || "N/A";
+        
+        const cur = data.bill_summary?.currency || "PKR";
+        document.getElementById("res-grand-total").innerText = cur + " " + (data.bill_summary?.grand_total || 0);
+        document.getElementById("res-expensive").innerText = data.insights?.most_expensive_item || "N/A";
+        
+        document.getElementById("res-verification").innerHTML = data.insights?.verified 
+            ? '<span style="color:#22c55e"><i class="fas fa-check-circle"></i> DATA VALIDATED</span>' 
+            : '<span style="color:#ef4444"><i class="fas fa-exclamation-circle"></i> NOT VALIDATED</span>';
+
+        const tbody = document.getElementById("res-items-body");
+        tbody.innerHTML = "";
+        if (data.items) {
+            data.items.forEach(item => {
+              tbody.innerHTML += `<tr>
+                <td>${item.name}</td>
+                <td>${item.quantity}</td>
+                <td>${cur} ${item.unit_price}</td>
+                <td style="text-align: right">${cur} ${item.total}</td>
+              </tr>`;
+            });
+        }
+
+        resultsSection.style.display = "block";
+        window.scrollTo({ top: resultsSection.offsetTop - 50, behavior: "smooth" });
+      }
+    </script>
+  </body>
+</html>
