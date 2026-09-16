@@ -134,11 +134,11 @@ The wrapper runs as `siresoft`, who owns the file, so sourcing `.env` succeeds.
 
 ## Install the services
 
-    chmod +x ~/siresoft-receiptiq/deploy/run-*.sh
+    chmod +x ~/siresoft-receiptiq/deploy/*.sh
 
     # SELinux: scripts under /home are user_home_t, which systemd may not
     # execute. Relabel them as bin_t or every start fails with status=203/EXEC.
-    sudo chcon -t bin_t ~/siresoft-receiptiq/deploy/run-*.sh
+    sudo chcon -t bin_t ~/siresoft-receiptiq/deploy/*.sh
 
     sudo cp ~/siresoft-receiptiq/deploy/*.service /etc/systemd/system/
     sudo systemctl daemon-reload
@@ -150,8 +150,8 @@ Open the port:
 
 To survive a full filesystem relabel, make the SELinux context permanent:
 
-    sudo semanage fcontext -a -t bin_t "/home/siresoft/siresoft-receiptiq/deploy/run-.*\.sh"
-    sudo restorecon -v ~/siresoft-receiptiq/deploy/run-*.sh
+    sudo semanage fcontext -a -t bin_t "/home/siresoft/siresoft-receiptiq/deploy/.*\.sh"
+    sudo restorecon -v ~/siresoft-receiptiq/deploy/*.sh
 
 ## Public access (optional)
 
