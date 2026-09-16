@@ -1,5 +1,5 @@
 [Unit]
-Description=ReceiptIQ Django application (Gunicorn)
+Description=SireSoft ReceiptIQ Django application (Gunicorn)
 After=network-online.target
 Wants=network-online.target
 
@@ -7,8 +7,8 @@ Wants=network-online.target
 Type=notify
 User=siresoft
 Group=siresoft
-WorkingDirectory=/home/siresoft/receiptiq
-ExecStart=/home/siresoft/receiptiq/deploy/run-app.sh
+WorkingDirectory=/home/siresoft/siresoft-receiptiq
+ExecStart=/home/siresoft/siresoft-receiptiq/deploy/run-app.sh
 ExecReload=/bin/kill -s HUP $MAINPID
 KillMode=mixed
 Restart=always
