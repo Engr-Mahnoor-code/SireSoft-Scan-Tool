@@ -170,10 +170,22 @@ Whatever public hostname you use must be listed in `ALLOWED_HOSTS`, and its
 
     cd ~/siresoft-receiptiq
     git pull
+    sudo restorecon -v deploy/*.sh                 # see below - not optional
     ./venv/bin/pip install -r requirements.txt     # only if requirements changed
     ./venv/bin/python manage.py migrate            # only if models changed
     ./venv/bin/python manage.py collectstatic --noinput
     sudo systemctl restart siresoft-receiptiq siresoft-receiptiq-worker
+
+`restorecon` is not optional on this host. `git pull` writes a replacement file
+rather than editing in place, so anything it touches comes back labelled
+`user_home_t`, and systemd refuses to execute that:
+
+    Failed at step EXEC spawning .../deploy/run-worker.sh: Permission denied
+    Main process exited, code=exited, status=203/EXEC
+
+It only works if the `semanage fcontext` rule from "Install the services" was
+added. Without that rule, use `sudo chcon -t bin_t deploy/*.sh` instead, and
+repeat it after every pull.
 
 `collectstatic` is not optional. WhiteNoise serves hashed filenames from
 `staticfiles/`, so without it the server keeps serving the previous CSS and JS
