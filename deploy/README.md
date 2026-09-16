@@ -1,4 +1,4 @@
-# Deploying siresoft-receiptiq on lsnettest5 (10.0.2.13)
+# Deploying siresoft-receiptiq on lsnet (10.0.2.2)
 
 This project installs as its own deployment, separate from anything already on
 the host. Nothing here is shared with an older install — its own folder, venv,
@@ -28,10 +28,24 @@ Settings live in one place only — `/home/siresoft/siresoft-receiptiq/.env`:
 
 ## First install
 
-    ssh siresoft@10.0.2.13
+The repo is private, so cloning needs a GitHub personal access token (classic,
+scope `repo`). Generate one under Settings -> Developer settings -> Personal
+access tokens, and keep it somewhere safe -- GitHub shows it only once.
 
-    git clone https://github.com/engr-mahnoor-naeem/siresoft-receiptiq.git ~/siresoft-receiptiq
+    ssh siresoft@10.0.2.2
+
+    git clone https://<TOKEN>@github.com/Engr-Mahnoor-code/siresoft-receiptiq.git ~/siresoft-receiptiq
     cd ~/siresoft-receiptiq
+
+Embedding the token in the URL writes it to `.git/config` in plain text. To keep
+it out of there, clone without it and let a credential helper cache it instead:
+
+    git clone https://github.com/Engr-Mahnoor-code/siresoft-receiptiq.git ~/siresoft-receiptiq
+    cd ~/siresoft-receiptiq
+    git config credential.helper store    # paste the token as the password once
+
+This clones into its own folder. An older `~/receiptiq` install on the same host
+is untouched -- separate folder, venv, database and port.
 
     python3 -m venv venv
     ./venv/bin/pip install -r requirements.txt gunicorn
@@ -113,7 +127,7 @@ and your changes simply will not appear in the browser.
 ## Health check
 
     systemctl is-active siresoft-receiptiq
-    curl -I http://10.0.2.13:8002/
+    curl -I http://10.0.2.2:8002/
     journalctl -u siresoft-receiptiq -n 50 --no-pager
 
 ## Changing the port
