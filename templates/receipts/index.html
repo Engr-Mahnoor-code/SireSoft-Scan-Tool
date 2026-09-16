@@ -1,22 +1,28 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}Upload Receipt — ReceiptIQ{% endblock %}
+{% block title %}Upload Receipts — ReceiptIQ{% endblock %}
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/upload.css' %}" />
 {% endblock %}
 
 {% block content %}
 <div class="page-header">
-  <h1 class="page-title">Scan Receipt</h1>
+  <h1 class="page-title">Scan Receipts</h1>
   <p class="page-subtitle">
-    Upload a receipt image or PDF to extract data automatically.
+    Upload up to {{ max_files }} receipts at once — images or PDFs — and we'll
+    extract the data from each one.
   </p>
 </div>
 
 <div class="upload-layout">
   <!-- Upload Panel -->
   <div class="card upload-card">
-    <div id="drop-zone" class="drop-zone">
+    <div
+      id="drop-zone"
+      class="drop-zone"
+      data-max-files="{{ max_files }}"
+      data-max-size="{{ max_file_size }}"
+    >
       <div class="drop-zone-icon">
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -34,58 +40,112 @@
           <line x1="12" y1="3" x2="12" y2="15" />
         </svg>
       </div>
-      <p class="drop-zone-text">Drag &amp; drop your receipt here</p>
+      <p class="drop-zone-text">Drag &amp; drop your receipts here</p>
       <p class="drop-zone-hint">or</p>
-      <label for="file-input" class="btn">Choose File</label>
-      <input id="file-input" type="file" accept="image/*,.pdf" hidden />
+      <label for="file-input" class="btn">Choose Files</label>
+      <input id="file-input" type="file" accept="image/*,.pdf" multiple hidden />
       <p class="drop-zone-formats">
-        JPG, PNG, WEBP, GIF, PDF &middot; Max 10 MB
+        JPG, PNG, WEBP, GIF, PDF &middot; Max 10 MB each &middot; Up to
+        {{ max_files }} receipts
       </p>
     </div>
 
-    <div id="file-preview" class="file-preview hidden">
-      <img id="preview-img" src="" alt="Receipt preview" />
-    </div>
-
-    <div id="file-info" class="file-info hidden">
-      <span id="file-name" class="file-name"></span>
-      <button id="clear-file" class="btn-icon" title="Remove">&times;</button>
+    <!-- Selected files queue -->
+    <div id="queue-section" class="queue-section hidden">
+      <div class="queue-header">
+        <span class="queue-title">Selected receipts</span>
+        <span id="queue-count" class="queue-count">0 / {{ max_files }}</span>
+      </div>
+      <ul id="file-queue" class="file-queue"></ul>
+      <button id="clear-all" type="button" class="btn-link">
+        Clear all
+      </button>
     </div>
 
     <button id="analyze-btn" class="btn btn-full btn-analyze" disabled>
-      <span class="btn-label">Analyze Receipt</span>
+      <span class="btn-label">Analyze Receipts</span>
       <span class="btn-spinner hidden"></span>
     </button>
+
+    <div id="upload-progress" class="upload-progress hidden">
+      <div class="progress-bar">
+        <div id="progress-fill" class="progress-fill"></div>
+      </div>
+      <p id="progress-text" class="progress-text"></p>
+    </div>
 
     <div id="upload-error" class="alert alert-error hidden"></div>
   </div>
 
   <!-- Results Panel -->
   <div id="results-panel" class="results-panel hidden">
-    <!-- Establishment -->
+    <!-- Batch summary -->
+    <div class="card batch-summary">
+      <div class="batch-stats">
+        <div class="batch-stat">
+          <span class="batch-stat-value" id="stat-processed">0</span>
+          <span class="batch-stat-label">Processed</span>
+        </div>
+        <div class="batch-stat">
+          <span class="batch-stat-value batch-stat-ok" id="stat-success">0</span>
+          <span class="batch-stat-label">Succeeded</span>
+        </div>
+        <div class="batch-stat">
+          <span class="batch-stat-value batch-stat-fail" id="stat-failed">0</span>
+          <span class="batch-stat-label">Failed</span>
+        </div>
+        <div class="batch-stat batch-stat-wide">
+          <span class="batch-stat-value" id="stat-total">—</span>
+          <span class="batch-stat-label">Combined Total</span>
+        </div>
+      </div>
+      <a href="{% url 'receipts:history' %}" class="btn btn-outline btn-sm"
+        >View History</a
+      >
+    </div>
+
+    <!-- One tab per receipt -->
+    <div class="result-tabs" id="result-tabs" role="tablist"></div>
+
+    <!-- One panel per receipt -->
+    <div id="result-panels"></div>
+  </div>
+</div>
+
+<!-- Template used by upload.js to build one result panel per receipt -->
+<template id="result-template">
+  <div class="result-group" role="tabpanel">
     <div class="card result-card">
-      <h2 class="card-title">Establishment</h2>
+      <div class="result-card-head">
+        <h2 class="card-title" data-field="heading">Establishment</h2>
+        <a
+          href="#"
+          class="btn btn-outline btn-sm"
+          data-field="detail-link"
+          >Full Receipt</a
+        >
+      </div>
+      <p class="result-filename" data-field="filename"></p>
       <div class="info-grid">
         <div class="info-item">
           <span class="info-label">Name</span>
-          <span class="info-value" id="res-vendor"></span>
+          <span class="info-value" data-field="vendor"></span>
         </div>
         <div class="info-item">
           <span class="info-label">Date</span>
-          <span class="info-value" id="res-date"></span>
+          <span class="info-value" data-field="date"></span>
         </div>
         <div class="info-item">
           <span class="info-label">Time</span>
-          <span class="info-value" id="res-time"></span>
+          <span class="info-value" data-field="time"></span>
         </div>
         <div class="info-item">
           <span class="info-label">Address</span>
-          <span class="info-value" id="res-address"></span>
+          <span class="info-value" data-field="address"></span>
         </div>
       </div>
     </div>
 
-    <!-- Items -->
     <div class="card result-card">
       <h2 class="card-title">Items</h2>
       <div class="table-wrapper">
@@ -98,28 +158,36 @@
               <th>Total</th>
             </tr>
           </thead>
-          <tbody id="res-items"></tbody>
+          <tbody data-field="items"></tbody>
         </table>
       </div>
     </div>
 
-    <!-- Bill Summary -->
     <div class="card result-card">
       <h2 class="card-title">Bill Summary</h2>
-      <div class="summary-list" id="res-summary"></div>
+      <div class="summary-list" data-field="summary"></div>
     </div>
 
-    <!-- Insights -->
-    <div class="card result-card" id="insights-card">
+    <div class="card result-card" data-field="insights-card">
       <h2 class="card-title">Insights</h2>
-      <ul class="insights-list" id="res-insights"></ul>
+      <ul class="insights-list" data-field="insights"></ul>
     </div>
-
-    <a id="view-detail-link" href="#" class="btn btn-outline btn-full"
-      >View Full Receipt</a
-    >
   </div>
-</div>
+</template>
+
+<!-- Template used for a receipt that failed to process -->
+<template id="error-template">
+  <div class="result-group" role="tabpanel">
+    <div class="card result-card">
+      <h2 class="card-title card-title-error">Extraction Failed</h2>
+      <p class="result-filename" data-field="filename"></p>
+      <div class="alert alert-error" data-field="error"></div>
+      <button type="button" class="btn btn-outline btn-sm" data-field="retry">
+        Retry this receipt
+      </button>
+    </div>
+  </div>
+</template>
 {% endblock %}
 
 {% block extra_js %}

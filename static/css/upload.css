@@ -1,4 +1,4 @@
-/* upload.css — Additional styles specific to the upload page */
+/* upload.css — Styles specific to the multi-receipt upload page */
 
 .upload-card {
     display: flex;
@@ -10,4 +10,380 @@
 
 .file-preview img {
     background: var(--bg-input);
+}
+
+/* ---- Drop zone states ---- */
+.drop-zone-full {
+    border-style: solid;
+    border-color: rgba(59, 130, 246, 0.2);
+    opacity: 0.75;
+}
+
+.drop-zone-disabled {
+    pointer-events: none;
+    opacity: 0.5;
+}
+
+/* ---- Selected files queue ---- */
+.queue-section {
+    margin-top: 1rem;
+}
+
+.queue-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.queue-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.queue-count {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--accent);
+    background: rgba(59, 130, 246, 0.12);
+    border: 1px solid rgba(59, 130, 246, 0.25);
+    border-radius: 20px;
+    padding: 0.1rem 0.6rem;
+}
+
+.file-queue {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.queue-item {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.5rem 0.6rem;
+    background: var(--bg-input);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius);
+    transition: border-color var(--transition);
+}
+
+.queue-item-uploading {
+    border-color: rgba(59, 130, 246, 0.5);
+}
+
+.queue-item-done {
+    border-color: rgba(34, 197, 94, 0.4);
+}
+
+.queue-item-error {
+    border-color: rgba(239, 68, 68, 0.45);
+}
+
+.queue-thumb {
+    width: 38px;
+    height: 38px;
+    flex-shrink: 0;
+    border-radius: 6px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.06);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.queue-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.queue-thumb-pdf {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+}
+
+.queue-meta {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1;
+}
+
+.queue-name {
+    font-size: 0.825rem;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.queue-sub {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+}
+
+.queue-status {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 0.15rem 0.5rem;
+    border-radius: 20px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.queue-status-pending {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-muted);
+}
+
+.queue-status-uploading {
+    background: rgba(59, 130, 246, 0.16);
+    color: #93c5fd;
+}
+
+.queue-status-done {
+    background: rgba(34, 197, 94, 0.16);
+    color: #86efac;
+}
+
+.queue-status-error {
+    background: rgba(239, 68, 68, 0.16);
+    color: #fca5a5;
+}
+
+.btn-link {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.78rem;
+    cursor: pointer;
+    padding: 0.5rem 0 0;
+    text-decoration: underline;
+    transition: color var(--transition);
+}
+
+.btn-link:hover:not(:disabled) {
+    color: var(--danger);
+}
+
+.btn-link:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ---- Batch progress ---- */
+.upload-progress {
+    margin-top: 0.85rem;
+}
+
+.progress-bar {
+    height: 6px;
+    background: var(--bg-input);
+    border-radius: 20px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    width: 0;
+    background: var(--accent);
+    border-radius: 20px;
+    transition: width 0.3s ease;
+}
+
+.progress-text {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 0.4rem;
+    text-align: center;
+}
+
+/* ---- Batch summary ---- */
+.batch-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    padding: 1.1rem 1.25rem;
+}
+
+.batch-stats {
+    display: flex;
+    gap: 1.75rem;
+    flex-wrap: wrap;
+}
+
+.batch-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+}
+
+.batch-stat-value {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1.35rem;
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--text);
+}
+
+.batch-stat-ok {
+    color: var(--success);
+}
+
+.batch-stat-fail {
+    color: var(--danger);
+}
+
+.batch-stat-wide .batch-stat-value {
+    color: var(--accent);
+}
+
+.batch-stat-label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+/* ---- Result tabs ---- */
+.result-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.result-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    max-width: 100%;
+    min-width: 0;
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius);
+    color: var(--text-muted);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 500;
+    padding: 0.45rem 0.8rem;
+    cursor: pointer;
+    transition: border-color var(--transition), color var(--transition),
+        background var(--transition);
+}
+
+.result-tab:hover {
+    color: var(--text);
+    border-color: var(--accent);
+}
+
+.result-tab.active {
+    background: var(--bg-card-2);
+    border-color: var(--accent);
+    color: #fff;
+}
+
+.result-tab-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: rgba(59, 130, 246, 0.18);
+    color: var(--accent);
+    font-size: 0.68rem;
+    font-weight: 700;
+}
+
+.result-tab-error .result-tab-num {
+    background: rgba(239, 68, 68, 0.18);
+    color: var(--danger);
+}
+
+.result-tab.active .result-tab-num {
+    background: var(--accent);
+    color: #fff;
+}
+
+.result-tab-error.active .result-tab-num {
+    background: var(--danger);
+}
+
+.result-tab-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ---- Result groups ---- */
+.results-panel,
+.result-group {
+    min-width: 0;
+}
+
+.result-group {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.result-group .card,
+.batch-summary {
+    min-width: 0;
+}
+
+/* A failed receipt reads as an error, not as another blue section heading. */
+.card-title-error {
+    color: var(--danger);
+}
+
+.result-card-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.result-card-head .card-title {
+    margin-bottom: 0.25rem;
+}
+
+.result-filename {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+    .batch-stats {
+        gap: 1.1rem;
+    }
+
+    .batch-stat-value {
+        font-size: 1.15rem;
+    }
+
+    .result-tab {
+        max-width: 150px;
+    }
 }

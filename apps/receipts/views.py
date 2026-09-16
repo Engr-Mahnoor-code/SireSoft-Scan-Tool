@@ -1,12 +1,16 @@
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from .models import Receipt
+from .api_views import MAX_FILES_PER_UPLOAD, MAX_FILE_SIZE
 
 
 @login_required
 def index(request):
     """Upload page — entry point for receipt scanning."""
-    return render(request, 'receipts/index.html')
+    return render(request, 'receipts/index.html', {
+        'max_files': MAX_FILES_PER_UPLOAD,
+        'max_file_size': MAX_FILE_SIZE,
+    })
 
 
 @login_required

@@ -470,13 +470,19 @@ img {
 /* ---- Upload page layout ---- */
 .upload-layout {
     display: grid;
-    grid-template-columns: 1fr;
+    /* minmax(0, …) lets the column shrink below its content width, otherwise
+       the results side (tab strip, wide tables) pushes the page sideways. */
+    grid-template-columns: minmax(0, 1fr);
     gap: 1.5rem;
+}
+
+.upload-layout>* {
+    min-width: 0;
 }
 
 @media (min-width: 900px) {
     .upload-layout {
-        grid-template-columns: 420px 1fr;
+        grid-template-columns: 420px minmax(0, 1fr);
         align-items: start;
     }
 }
