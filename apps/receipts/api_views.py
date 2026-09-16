@@ -1,34 +1,21 @@
 """
 REST API views for the receipts app.
 All views require authentication (enforced by DRF IsAuthenticated default).
+
+Uploading only queues work. A local vision model can spend minutes on one
+image — far longer than a tunnel or browser will hold a request open — so the
+upload returns as soon as the files are saved and the page polls
+/api/receipts/status/ while the worker gets through them.
 """
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import status as http
+
 from django.shortcuts import get_object_or_404
 
 from .models import Receipt
 from .serializers import ReceiptSerializer
-from .services import extract_receipt_data, GeminiQuotaError, GeminiAPIError
-
-import re as _re
-
-
-def _safe_float(value, default=0.0):
-    """Convert a value to float, stripping currency symbols/commas if needed."""
-    if value is None or value == '':
-        return default
-    try:
-        return float(value)
-    except (ValueError, TypeError):
-        pass
-    try:
-        cleaned = _re.sub(r'[^\d.\-]', '', str(value).replace(',', ''))
-        return float(cleaned) if cleaned else default
-    except (ValueError, TypeError):
-        return default
-
 
 ALLOWED_MIME_TYPES = {
     'image/jpeg', 'image/jpg', 'image/png',
@@ -36,121 +23,149 @@ ALLOWED_MIME_TYPES = {
 }
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 MAX_FILES_PER_UPLOAD = 5
+# Upper bound on one status poll, so a crafted query cannot ask for everything.
+MAX_STATUS_IDS = 50
+
+
+def receipt_state(receipt):
+    """The shape the upload page polls for. Kept in one place by design."""
+    state = {
+        'receipt_id': receipt.id,
+        'filename': receipt.filename,
+        'status': receipt.status,
+    }
+    if receipt.status == Receipt.STATUS_SUCCESS:
+        state['data'] = receipt.extracted_data
+    elif receipt.status == Receipt.STATUS_FAILED:
+        state['error'] = receipt.error_message or 'Extraction failed.'
+    return state
 
 
 class UploadReceiptView(APIView):
     """
     POST /api/upload/
+
     Accepts up to MAX_FILES_PER_UPLOAD files (field name 'files', or 'file' for
-    a single upload), calls Gemini for each, saves them, and returns one result
-    entry per file. A failure on one file never aborts the rest of the batch.
+    a single upload), saves each one as a pending receipt and returns straight
+    away. A file rejected by validation never blocks the others.
     """
 
     def post(self, request):
-        uploaded_files = request.FILES.getlist('files') or request.FILES.getlist('file')
+        uploaded_files = (request.FILES.getlist('files')
+                          or request.FILES.getlist('file'))
 
         if not uploaded_files:
-            return Response({'error': 'No file provided.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'No file provided.'},
+                            status=http.HTTP_400_BAD_REQUEST)
 
         if len(uploaded_files) > MAX_FILES_PER_UPLOAD:
             return Response(
-                {'error': f'Too many files. Up to {MAX_FILES_PER_UPLOAD} receipts can be uploaded at a time.'},
-                status=status.HTTP_400_BAD_REQUEST,
+                {'error': 'Too many files. Up to %d receipts can be uploaded '
+                          'at a time.' % MAX_FILES_PER_UPLOAD},
+                status=http.HTTP_400_BAD_REQUEST,
             )
 
         results = [
-            self._process_file(request.user, uploaded_file, index)
+            self._queue_file(request.user, uploaded_file, index)
             for index, uploaded_file in enumerate(uploaded_files)
         ]
 
-        succeeded = [r for r in results if r['status'] == 'success']
+        queued = [r for r in results if r['status'] == Receipt.STATUS_PENDING]
         payload = {
             'results': results,
-            'success_count': len(succeeded),
-            'error_count': len(results) - len(succeeded),
+            'queued_count': len(queued),
+            'error_count': len(results) - len(queued),
         }
 
-        # Backwards compatibility: a single successful upload also returns the
-        # flat {receipt_id, data} shape older clients expect.
-        if len(results) == 1 and succeeded:
-            payload['receipt_id'] = succeeded[0]['receipt_id']
-            payload['data'] = succeeded[0]['data']
+        if not queued:
+            # Everything was rejected before it reached the queue.
+            if len(results) == 1:
+                payload['error'] = results[0]['error']
+            return Response(payload, status=http.HTTP_400_BAD_REQUEST)
 
-        if succeeded:
-            return Response(payload, status=status.HTTP_201_CREATED)
-
-        codes = {r.get('code') for r in results}
-        if codes == {'quota'}:
-            http_status = status.HTTP_429_TOO_MANY_REQUESTS
-        elif codes <= {'invalid_type', 'too_large'}:
-            http_status = status.HTTP_400_BAD_REQUEST
-        else:
-            http_status = status.HTTP_500_INTERNAL_SERVER_ERROR
-
-        # Single-file failures keep the flat {error} shape too.
+        # A single upload also returns the flat receipt_id older callers expect.
         if len(results) == 1:
-            payload['error'] = results[0]['error']
+            payload['receipt_id'] = queued[0]['receipt_id']
 
-        return Response(payload, status=http_status)
+        return Response(payload, status=http.HTTP_202_ACCEPTED)
 
-    def _process_file(self, user, uploaded_file, index):
-        """Validate, extract and save one file. Returns a result dict."""
+    def _queue_file(self, user, uploaded_file, index):
+        """Validate one file and save it as a pending receipt."""
         def failure(message, code):
             return {
                 'index': index,
                 'filename': uploaded_file.name,
-                'status': 'error',
+                'status': Receipt.STATUS_FAILED,
                 'code': code,
                 'error': message,
             }
 
         if uploaded_file.content_type not in ALLOWED_MIME_TYPES:
-            return failure('Invalid file type. Only images and PDFs are accepted.', 'invalid_type')
+            return failure(
+                'Invalid file type. Only images and PDFs are accepted.',
+                'invalid_type')
 
         if uploaded_file.size > MAX_FILE_SIZE:
-            return failure('File too large. Maximum size is 10 MB.', 'too_large')
+            return failure('File too large. Maximum size is 10 MB.',
+                           'too_large')
 
-        receipt = Receipt.objects.create(user=user, file=uploaded_file)
+        receipt = Receipt.objects.create(
+            user=user,
+            file=uploaded_file,
+            content_type=uploaded_file.content_type,
+            status=Receipt.STATUS_PENDING,
+        )
 
-        try:
-            with open(receipt.file.path, 'rb') as f:
-                file_data = f.read()
+        return {
+            'index': index,
+            'filename': uploaded_file.name,
+            'status': Receipt.STATUS_PENDING,
+            'receipt_id': receipt.id,
+        }
 
-            data = extract_receipt_data(file_data, uploaded_file.content_type)
 
-            receipt.vendor_name = data.get(
-                'establishment', {}).get('name') or 'Unknown Vendor'
-            receipt.date = data.get('establishment', {}).get('date') or 'N/A'
-            total = data.get('bill_summary', {}).get('grand_total', 0)
-            receipt.total_amount = _safe_float(total)
-            receipt.extracted_data = data
-            receipt.save()
+class ReceiptStatusView(APIView):
+    """
+    GET /api/receipts/status/?ids=1,2,3
 
-            return {
-                'index': index,
-                'filename': uploaded_file.name,
-                'status': 'success',
-                'receipt_id': receipt.id,
-                'data': data,
-            }
+    Reports where the worker has got to with each receipt. Unknown ids are left
+    out rather than erroring, so a stale page does not break on a deleted row.
+    """
 
-        except GeminiQuotaError:
-            receipt.delete()
-            return failure(
-                'API quota exceeded. Please wait or upgrade your Gemini plan.', 'quota')
-        except (GeminiAPIError, Exception) as e:
-            receipt.delete()
-            return failure(f'Extraction failed: {str(e)}', 'extraction')
+    def get(self, request):
+        raw_ids = request.query_params.get('ids', '')
+        ids = []
+        for chunk in raw_ids.split(','):
+            chunk = chunk.strip()
+            if chunk.isdigit():
+                ids.append(int(chunk))
+
+        if not ids:
+            return Response({'error': 'No receipt ids given.'},
+                            status=http.HTTP_400_BAD_REQUEST)
+
+        receipts = Receipt.objects.filter(
+            user=request.user, pk__in=ids[:MAX_STATUS_IDS])
+        states = [receipt_state(r) for r in receipts]
+
+        return Response({
+            'results': states,
+            'pending_count': sum(
+                1 for s in states
+                if s['status'] in (Receipt.STATUS_PENDING,
+                                   Receipt.STATUS_PROCESSING)),
+        })
 
 
 class ReceiptListView(APIView):
     """
     GET /api/receipts/
-    Returns all receipts belonging to the authenticated user.
+    Returns the authenticated user's successfully processed receipts.
     """
 
     def get(self, request):
-        receipts = Receipt.objects.filter(user=request.user)
+        receipts = Receipt.objects.filter(
+            user=request.user, status=Receipt.STATUS_SUCCESS)
         serializer = ReceiptSerializer(
             receipts, many=True, context={'request': request})
         return Response(serializer.data)

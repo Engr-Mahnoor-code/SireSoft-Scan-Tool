@@ -4,3 +4,5 @@ psycopg2-binary>=2.9
 requests>=2.31
 python-dotenv>=1.0
 whitenoise>=6.6
+# Rasterises PDF receipts; Ollama vision models read images, not PDFs
+pymupdf>=1.24

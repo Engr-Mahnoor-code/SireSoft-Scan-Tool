@@ -15,8 +15,9 @@ def index(request):
 
 @login_required
 def history(request):
-    """History page — list all receipts for the logged-in user."""
-    receipts = Receipt.objects.filter(user=request.user)
+    """History page — receipts the worker finished successfully."""
+    receipts = Receipt.objects.filter(
+        user=request.user, status=Receipt.STATUS_SUCCESS)
     return render(request, 'receipts/history.html', {'receipts': receipts})
 
 

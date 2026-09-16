@@ -8,5 +8,6 @@ class ReceiptSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'vendor_name', 'date', 'total_amount',
             'file', 'extracted_data', 'created_at',
+            'status', 'error_message', 'processed_at',
         ]
         read_only_fields = fields

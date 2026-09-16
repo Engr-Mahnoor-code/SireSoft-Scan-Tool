@@ -152,6 +152,30 @@
     color: #93c5fd;
 }
 
+/* Waiting for the worker to reach this receipt. */
+.queue-status-queued {
+    background: rgba(245, 158, 11, 0.16);
+    color: #fcd34d;
+}
+
+/* The model is reading this one right now. */
+.queue-status-processing {
+    background: rgba(59, 130, 246, 0.16);
+    color: #93c5fd;
+    animation: queue-status-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes queue-status-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.55; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .queue-status-processing {
+        animation: none;
+    }
+}
+
 .queue-status-done {
     background: rgba(34, 197, 94, 0.16);
     color: #86efac;

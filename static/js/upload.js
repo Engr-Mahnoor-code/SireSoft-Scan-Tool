@@ -1,9 +1,12 @@
 /**
  * upload.js — Multi-receipt upload page.
  *
- * Users can queue several receipts (limit read from data-max-files), then each
- * one is sent to /api/upload/ in its own request so results stream in per
- * receipt and a single failure never takes down the rest of the batch.
+ * Users can queue several receipts (limit read from data-max-files). The whole
+ * queue is uploaded in one request, which only registers the files: extraction
+ * runs in a background worker, because the local vision model can take minutes
+ * per receipt and no tunnel will hold a request open that long. The page then
+ * polls for each receipt and renders it the moment it lands, so a slow or
+ * failed receipt never holds up the rest of the batch.
  */
 
 (function () {
@@ -173,7 +176,9 @@
 
   const STATUS_LABELS = {
     pending: "Ready",
-    uploading: "Analyzing…",
+    uploading: "Uploading…",
+    queued: "Queued…",
+    processing: "Analyzing…",
     done: "Done",
     error: "Failed",
   };
@@ -507,10 +512,33 @@
       combined === null ? "—" : formatMoney(combined);
   }
 
-  // ---- Upload ----
-  async function uploadOne(item) {
+  // ---- Upload + polling ----
+  //
+  // /api/upload/ only queues the files; a background worker does the actual
+  // extraction. So the flow is: one upload request, then poll until every
+  // receipt reports back.
+
+  const POLL_INTERVAL_MS = 2000;
+  // A local model is slow, but a page that polls forever is a bug, not patience.
+  const POLL_TIMEOUT_MS = 30 * 60 * 1000;
+
+  function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  function finishedCount(items) {
+    return items.filter(
+      (item) => item.status === "done" || item.status === "error",
+    ).length;
+  }
+
+  /**
+   * Send every queued file in one request. Returns the items the server
+   * accepted; anything it rejected outright is rendered as failed here.
+   */
+  async function submitBatch(items) {
     const formData = new FormData();
-    formData.append("files", item.file);
+    items.forEach((item) => formData.append("files", item.file));
 
     const res = await fetch("/api/upload/", {
       method: "POST",
@@ -525,15 +553,97 @@
       throw new Error(`Server error (${res.status}). Please try again.`);
     }
 
-    const result = (json.results && json.results[0]) || null;
-    if (result && result.status === "success") {
-      return result;
+    // A batch-level rejection (too many files, nothing attached) has no
+    // per-file results to fall back on.
+    if (!Array.isArray(json.results)) {
+      throw new Error(json.error || `Error ${res.status}: upload failed.`);
     }
-    throw new Error(
-      (result && result.error) ||
-        json.error ||
-        `Error ${res.status}: upload failed.`,
-    );
+
+    const accepted = [];
+    json.results.forEach((result) => {
+      const item = items[result.index];
+      if (!item) return;
+
+      if (result.receipt_id) {
+        item.receiptId = result.receipt_id;
+        item.status = "queued";
+        accepted.push(item);
+      } else {
+        item.status = "error";
+        item.error = result.error || "The server rejected this file.";
+        renderFailure(item);
+      }
+    });
+
+    return accepted;
+  }
+
+  /**
+   * Poll until every accepted receipt has finished.
+   *
+   * `batch` is everything the user asked for, including files the server
+   * already rejected, so the progress bar counts against the right total.
+   */
+  async function pollBatch(accepted, batch) {
+    const waiting = new Map(accepted.map((item) => [item.receiptId, item]));
+    const startedAt = Date.now();
+
+    while (waiting.size) {
+      await sleep(POLL_INTERVAL_MS);
+
+      if (Date.now() - startedAt > POLL_TIMEOUT_MS) {
+        waiting.forEach((item) => {
+          item.status = "error";
+          item.error =
+            "Timed out waiting for the server. The receipt may still be " +
+            "processing — check History in a few minutes.";
+          renderFailure(item);
+        });
+        waiting.clear();
+        break;
+      }
+
+      const ids = Array.from(waiting.keys()).join(",");
+      let json;
+      try {
+        const res = await fetch(`/api/receipts/status/?ids=${ids}`);
+        json = await res.json();
+      } catch (_) {
+        // A dropped poll costs nothing; the worker carries on regardless.
+        continue;
+      }
+
+      (json.results || []).forEach((result) => {
+        const item = waiting.get(result.receipt_id);
+        if (!item) return;
+
+        if (result.status === "success") {
+          item.status = "done";
+          item.data = result.data;
+          item.error = null;
+          renderSuccess(item);
+          waiting.delete(result.receipt_id);
+        } else if (result.status === "failed") {
+          item.status = "error";
+          item.error = result.error || "Extraction failed.";
+          renderFailure(item);
+          waiting.delete(result.receipt_id);
+        } else {
+          item.status =
+            result.status === "processing" ? "processing" : "queued";
+        }
+      });
+
+      setProgress(finishedCount(batch), batch.length);
+      updateStats();
+      renderQueue();
+
+      // Show the first finished receipt straight away.
+      if (!panelsEl.querySelector(".result-group:not(.hidden)")) {
+        const firstDone = batch.find((item) => item.status === "done");
+        if (firstDone) activateTab(firstDone);
+      }
+    }
   }
 
   async function runBatch(items) {
@@ -541,38 +651,32 @@
 
     hideError();
     setLoading(true);
+    items.forEach((item) => {
+      item.status = "uploading";
+      item.error = null;
+    });
     renderQueue();
-
-    let done = 0;
     setProgress(0, items.length);
 
-    for (const item of items) {
-      item.status = "uploading";
+    try {
+      const accepted = await submitBatch(items);
       renderQueue();
-      try {
-        const result = await uploadOne(item);
-        item.status = "done";
-        item.data = result.data;
-        item.receiptId = result.receipt_id;
-        item.error = null;
-        renderSuccess(item);
-      } catch (err) {
+      if (accepted.length) {
+        await pollBatch(accepted, items);
+      }
+    } catch (err) {
+      const message =
+        err.message || "Network error — please check your connection.";
+      items.forEach((item) => {
+        if (item.status === "done" || item.status === "error") return;
         item.status = "error";
-        item.error =
-          err.message || "Network error — please check your connection.";
+        item.error = message;
         renderFailure(item);
-      }
-      done++;
-      setProgress(done, items.length);
-      updateStats();
-      renderQueue();
-
-      // Show the first finished receipt straight away.
-      if (!panelsEl.querySelector(".result-group:not(.hidden)")) {
-        activateTab(item);
-      }
+      });
     }
 
+    setProgress(finishedCount(items), items.length);
+    updateStats();
     setLoading(false);
     renderQueue();
 
