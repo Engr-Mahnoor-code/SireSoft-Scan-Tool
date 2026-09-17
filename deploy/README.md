@@ -27,8 +27,9 @@ Settings live in one place only — `/home/siresoft/siresoft-receiptiq/.env`:
     GUNICORN_TIMEOUT=600
     NGROK_URL=https://<your-reserved-domain>.ngrok-free.dev
     OLLAMA_BASE_URL=http://localhost:11434
-    OLLAMA_MODEL=llama3.2-vision
+    OLLAMA_MODEL=qwen2.5vl:3b
     OLLAMA_TIMEOUT=900
+    OLLAMA_NUM_CTX=8192
 
 ## First install
 
@@ -82,20 +83,33 @@ request and return nonsense, because it never sees the image:
     curl -fsSL https://ollama.com/install.sh | sh
     sudo systemctl enable --now ollama
 
-    ollama pull llama3.2-vision
+    ollama pull qwen2.5vl:3b
     ollama list
-
-Which model to pull depends on what this host has:
 
 | Hardware | Model | Notes |
 |---|---|---|
-| GPU, 8 GB VRAM or more | `llama3.2-vision` | Best accuracy of the three |
-| CPU only, 16 GB RAM | `minicpm-v` | Reasonable accuracy, far lighter |
-| CPU only, tight on RAM | `moondream` | Fastest, weakest at small print |
+| Any, including CPU only | `qwen2.5vl:3b` | 3.2 GB, strong on printed receipts. The default. |
+| GPU with room to spare | `qwen2.5vl:7b` | Larger, better on faint or handwritten print |
+| CPU, tight on RAM | `moondream` | Fastest, weakest at small print |
 
-Whatever you pull must match `OLLAMA_MODEL` in `.env`. Check the worker log
-after changing it — a model that is not pulled fails every receipt with the
-same message.
+Whatever you pull must match `OLLAMA_MODEL` in `.env`.
+
+**Do not use `llama3.2-vision`.** It is built on the `mllama` architecture,
+which Ollama dropped in its newer engine, so on 0.34 it downloads its full
+7.8 GB and then fails every single receipt with:
+
+    error loading model: unknown model architecture: 'mllama'
+
+Nothing in the log points at the model choice, so this is worth recognising.
+
+`OLLAMA_NUM_CTX` matters as much as the model. A receipt image costs thousands
+of tokens and Ollama's own default is 4096, which a full page overflows:
+
+    request (4351 tokens) exceeds the available context size (4096 tokens)
+
+The service already caps image size (`MAX_IMAGE_EDGE`) and retries once at 60%
+scale before giving up, so this should not reach a user — but lowering
+`OLLAMA_NUM_CTX` will bring it back.
 
 Expect a local model to be slower than a hosted one: seconds on a GPU, minutes
 on a CPU. That is why extraction runs in the worker rather than in the upload

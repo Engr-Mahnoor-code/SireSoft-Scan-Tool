@@ -17,11 +17,28 @@ import requests
 
 OLLAMA_BASE_URL = os.environ.get(
     'OLLAMA_BASE_URL', 'http://localhost:11434').rstrip('/')
-OLLAMA_MODEL = os.environ.get('OLLAMA_MODEL', 'llama3.2-vision')
+OLLAMA_MODEL = os.environ.get('OLLAMA_MODEL', 'qwen2.5vl:3b')
 OLLAMA_TIMEOUT = int(os.environ.get('OLLAMA_TIMEOUT', '900'))
-# PDFs are rasterised before the model sees them. 200 dpi keeps small print
-# legible without producing an image the model would only downscale again.
-PDF_RENDER_DPI = int(os.environ.get('PDF_RENDER_DPI', '200'))
+# A receipt image costs thousands of tokens. Ollama's 4096 default is not
+# enough for a full page, and overflowing it fails the request outright.
+OLLAMA_NUM_CTX = int(os.environ.get('OLLAMA_NUM_CTX', '8192'))
+# Longest edge, in pixels, of the image handed to the model. This is the real
+# guard on context: a page rendered at a fixed DPI grows without limit, so cap
+# the result instead and let the DPI fall where it must.
+MAX_IMAGE_EDGE = int(os.environ.get('MAX_IMAGE_EDGE', '1400'))
+# Ceiling for PDF rasterising; the edge cap above usually lands below this.
+PDF_RENDER_DPI = int(os.environ.get('PDF_RENDER_DPI', '150'))
+
+# PyMuPDF opens these as single-page documents, which is how an oversized
+# photo gets scaled down before it reaches the model.
+_IMAGE_FILETYPES = {
+    'image/jpeg': 'jpg',
+    'image/jpg': 'jpg',
+    'image/png': 'png',
+    'image/gif': 'gif',
+    'image/bmp': 'bmp',
+    'image/webp': 'webp',
+}
 
 EXTRACTION_PROMPT = """You are reading a receipt or invoice. Extract every line item and total you can see.
 
@@ -57,16 +74,44 @@ Rules:
 - List every item you can read, in the order they appear."""
 
 
-class OllamaUnavailableError(Exception):
+class OllamaError(Exception):
+    """
+    Base for every extraction failure.
+
+    Carries two messages on purpose: `str(e)` is the technical detail, which
+    belongs in the worker log, and `user_message` is what the upload page
+    shows. Users should never be handed a raw API error payload.
+    """
+
+    default_user_message = 'This receipt could not be read. Please try again.'
+
+    def __init__(self, message, user_message=None):
+        super().__init__(message)
+        self.user_message = user_message or self.default_user_message
+
+
+class OllamaUnavailableError(OllamaError):
     """Raised when the Ollama server cannot be reached at all."""
 
+    default_user_message = (
+        'The extraction service is not responding right now. This receipt has '
+        'been saved and will be processed automatically once it is back.')
 
-class OllamaModelMissingError(Exception):
-    """Raised when Ollama is running but the configured model is not pulled."""
+
+class OllamaModelMissingError(OllamaError):
+    """Raised when Ollama is running but the configured model is not usable."""
+
+    default_user_message = (
+        'The extraction service is not configured correctly. Please contact '
+        'your administrator.')
 
 
-class OllamaError(Exception):
-    """Raised for any other extraction failure."""
+class OllamaContextError(OllamaError):
+    """Raised when the image does not fit in the model's context window."""
+
+    default_user_message = (
+        'This file was too detailed to read in one pass. Try uploading a '
+        'smaller or clearer scan.')
 
 
 def _load_pdf_renderer():
@@ -86,13 +131,14 @@ def _load_pdf_renderer():
         return fitz
     except ImportError as e:
         raise OllamaError(
-            'PDF support needs PyMuPDF. Install it with: pip install pymupdf'
-        ) from e
+            'PDF support needs PyMuPDF. Install it with: pip install pymupdf',
+            'PDF receipts are not available on this server yet. Please upload '
+            'an image instead.') from e
 
 
-def _pdf_first_page_to_png(file_data: bytes) -> bytes:
+def _render_pdf_page(file_data: bytes, max_edge: int) -> bytes:
     """
-    Render page 1 of a PDF to PNG bytes.
+    Render page 1 of a PDF to PNG bytes, capped at `max_edge` pixels.
 
     Ollama's vision models read images, not PDFs. Only the first page is sent:
     receipts are single-page, and a taller stacked image would just be scaled
@@ -102,26 +148,65 @@ def _pdf_first_page_to_png(file_data: bytes) -> bytes:
     try:
         doc = renderer.open(stream=file_data, filetype='pdf')
     except Exception as e:
-        raise OllamaError(f'Could not read the PDF: {e}') from e
+        raise OllamaError(
+            'Could not read the PDF: %s' % e,
+            'This PDF could not be opened. It may be damaged or password '
+            'protected.') from e
 
     try:
         if doc.page_count == 0:
-            raise OllamaError('The PDF has no pages.')
-        pixmap = doc.load_page(0).get_pixmap(dpi=PDF_RENDER_DPI)
-        return pixmap.tobytes('png')
+            raise OllamaError('The PDF has no pages.',
+                              'This PDF is empty.')
+        page = doc.load_page(0)
+        # A page is measured in points: 72 to the inch. Pick the DPI that lands
+        # on the edge cap, never above PDF_RENDER_DPI.
+        longest_points = max(page.rect.width, page.rect.height) or 1
+        dpi = min(PDF_RENDER_DPI, int(max_edge * 72 / longest_points))
+        return page.get_pixmap(dpi=max(dpi, 48)).tobytes('png')
     except OllamaError:
         raise
     except Exception as e:
-        raise OllamaError(f'Could not render the PDF: {e}') from e
+        raise OllamaError(
+            'Could not render the PDF: %s' % e,
+            'This PDF could not be converted to an image.') from e
     finally:
         doc.close()
 
 
-def _as_image_bytes(file_data: bytes, mime_type: str) -> bytes:
-    """Return image bytes the model can read, converting a PDF if needed."""
+def _shrink_image(file_data: bytes, mime_type: str, max_edge: int) -> bytes:
+    """
+    Scale an image down so its longest edge is at most `max_edge` pixels.
+
+    Best effort by design: a format PyMuPDF cannot open is passed through
+    untouched rather than failing the receipt, since most photos are already
+    small enough and the model is the better judge of the rest.
+    """
+    filetype = _IMAGE_FILETYPES.get((mime_type or '').lower())
+    if not filetype:
+        return file_data
+
+    try:
+        renderer = _load_pdf_renderer()
+        doc = renderer.open(stream=file_data, filetype=filetype)
+        try:
+            page = doc.load_page(0)
+            longest = max(page.rect.width, page.rect.height) or 1
+            if longest <= max_edge:
+                return file_data
+            zoom = max_edge / longest
+            matrix = renderer.Matrix(zoom, zoom)
+            return page.get_pixmap(matrix=matrix).tobytes('png')
+        finally:
+            doc.close()
+    except Exception:
+        return file_data
+
+
+def _prepare_image(file_data: bytes, mime_type: str, max_edge: int) -> bytes:
+    """Return image bytes the model can read, sized to fit its context."""
     if (mime_type or '').lower() == 'application/pdf':
-        return _pdf_first_page_to_png(file_data)
-    return file_data
+        return _render_pdf_page(file_data, max_edge)
+    return _shrink_image(file_data, mime_type, max_edge)
 
 
 def check_ollama_ready() -> None:
@@ -160,10 +245,26 @@ def extract_receipt_data(file_data: bytes, mime_type: str) -> dict:
     """
     Send a receipt to the local Ollama model and return parsed, normalised data.
 
-    Raises OllamaUnavailableError if the server is down, OllamaModelMissingError
-    if the model is not pulled, and OllamaError for everything else.
+    A file that overflows the model's context is retried once at a smaller size
+    rather than reported as a failure: shrinking costs a second, and the user
+    cannot act on "too many tokens" in any case.
     """
-    image_bytes = _as_image_bytes(file_data, mime_type)
+    sizes = (MAX_IMAGE_EDGE, int(MAX_IMAGE_EDGE * 0.6))
+    overflow = None
+
+    for max_edge in sizes:
+        image_bytes = _prepare_image(file_data, mime_type, max_edge)
+        try:
+            return _normalise(_parse_json(_ask_model(image_bytes)))
+        except OllamaContextError as e:
+            overflow = e
+            continue
+
+    raise overflow
+
+
+def _ask_model(image_bytes: bytes) -> str:
+    """POST one image to Ollama and return the model's raw reply."""
     encoded = base64.b64encode(image_bytes).decode('utf-8')
 
     payload = {
@@ -174,7 +275,7 @@ def extract_receipt_data(file_data: bytes, mime_type: str) -> dict:
         # Constrains decoding to valid JSON, which a small local model will
         # otherwise wrap in prose however firmly the prompt asks it not to.
         'format': 'json',
-        'options': {'temperature': 0},
+        'options': {'temperature': 0, 'num_ctx': OLLAMA_NUM_CTX},
     }
 
     try:
@@ -184,7 +285,9 @@ def extract_receipt_data(file_data: bytes, mime_type: str) -> dict:
     except requests.Timeout as e:
         raise OllamaError(
             'The model took longer than %ss on this receipt. Try a smaller '
-            'model or raise OLLAMA_TIMEOUT.' % OLLAMA_TIMEOUT) from e
+            'model or raise OLLAMA_TIMEOUT.' % OLLAMA_TIMEOUT,
+            'This receipt took too long to read. Try a smaller or clearer '
+            'scan.') from e
     except requests.RequestException as e:
         raise OllamaUnavailableError(
             'Cannot reach Ollama at ' + OLLAMA_BASE_URL + ': ' + str(e)) from e
@@ -194,23 +297,29 @@ def extract_receipt_data(file_data: bytes, mime_type: str) -> dict:
             "Model '%s' is not installed. Pull it with: ollama pull %s"
             % (OLLAMA_MODEL, OLLAMA_MODEL))
 
+    # Ollama reports an oversized prompt as a 400 naming the context size.
+    if resp.status_code == 400 and 'context' in resp.text.lower():
+        raise OllamaContextError(
+            'Image did not fit the context window: %s' % resp.text[:300])
+
     if not resp.ok:
         raise OllamaError(
             'Ollama returned HTTP %s: %s' % (resp.status_code, resp.text[:300]))
 
     try:
-        raw = resp.json().get('response', '')
+        return resp.json().get('response', '')
     except ValueError as e:
-        raise OllamaError('Ollama returned a response that was not JSON.') from e
-
-    return _normalise(_parse_json(raw))
+        raise OllamaError(
+            'Ollama returned a response that was not JSON.') from e
 
 
 def _parse_json(raw: str) -> dict:
     """Pull a JSON object out of the model's reply."""
     text = (raw or '').strip()
     if not text:
-        raise OllamaError('The model returned an empty response.')
+        raise OllamaError(
+            'The model returned an empty response.',
+            'Nothing could be read from this file. Try a clearer scan.')
 
     # `format: json` normally makes fences impossible, but a model that ignores
     # it still produces something recoverable.
@@ -226,7 +335,9 @@ def _parse_json(raw: str) -> dict:
         start, end = text.find('{'), text.rfind('}')
         if start == -1 or end <= start:
             raise OllamaError(
-                'The model did not return JSON: ' + text[:200]) from None
+                'The model did not return JSON: ' + text[:200],
+                'This file did not look like a receipt. Please check the '
+                'image and try again.') from None
         try:
             parsed = json.loads(text[start:end + 1])
         except json.JSONDecodeError as e:

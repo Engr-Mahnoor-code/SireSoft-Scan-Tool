@@ -30,6 +30,8 @@ from apps.receipts.services import (
 MAX_ATTEMPTS = 3
 # Wait this long after Ollama looks down, rather than spinning on the queue.
 BACKOFF_SECONDS = 15
+# Shown on the upload page when nothing more specific is known.
+DEFAULT_USER_MESSAGE = 'This receipt could not be read. Please try again.'
 
 
 class Command(BaseCommand):
@@ -147,19 +149,22 @@ class Command(BaseCommand):
             with open(receipt.file.path, 'rb') as f:
                 file_data = f.read()
         except OSError as e:
-            self._fail(receipt, 'Could not read the uploaded file: %s' % e)
+            self._fail(receipt, 'Could not read the uploaded file: %s' % e,
+                       'The uploaded file could not be opened. Please upload '
+                       'it again.')
             return False
 
         try:
             data = extract_receipt_data(file_data, receipt.content_type)
         except (OllamaUnavailableError, OllamaModelMissingError) as e:
-            self._requeue(receipt, str(e))
+            self._requeue(receipt, str(e), e.user_message)
             return True
         except OllamaError as e:
-            self._fail(receipt, str(e))
+            self._fail(receipt, str(e), e.user_message)
             return False
         except Exception as e:  # noqa: BLE001 - one receipt must not kill the worker
-            self._fail(receipt, 'Unexpected error: %s' % e)
+            self._fail(receipt, 'Unexpected error: %s' % e,
+                       'This receipt could not be read. Please try again.')
             return False
 
         establishment = data.get('establishment', {})
@@ -180,35 +185,42 @@ class Command(BaseCommand):
                receipt.vendor_name, receipt.total_amount)))
         return False
 
-    def _fail(self, receipt, message):
+    def _fail(self, receipt, log_message, user_message=None):
+        """
+        Mark a receipt failed.
+
+        Two messages, deliberately: the log gets the technical detail, the
+        upload page gets something a person can act on. Showing a raw API
+        payload on screen helps nobody and looks broken.
+        """
         receipt.status = Receipt.STATUS_FAILED
-        receipt.error_message = message
+        receipt.error_message = user_message or DEFAULT_USER_MESSAGE
         receipt.processed_at = timezone.now()
         receipt.save(update_fields=[
             'status', 'error_message', 'processed_at'])
         self.stderr.write(self.style.ERROR(
-            'Receipt #%d failed — %s' % (receipt.id, message)))
+            'Receipt #%d failed — %s' % (receipt.id, log_message)))
 
-    def _requeue(self, receipt, message):
+    def _requeue(self, receipt, log_message, user_message=None):
         """Send a receipt back to the queue, giving up after MAX_ATTEMPTS."""
         receipt.attempts += 1
 
         if receipt.attempts >= MAX_ATTEMPTS:
             receipt.status = Receipt.STATUS_FAILED
-            receipt.error_message = (
-                '%s (gave up after %d attempts)' % (message, receipt.attempts))
+            receipt.error_message = user_message or DEFAULT_USER_MESSAGE
             receipt.processed_at = timezone.now()
             receipt.save(update_fields=[
                 'status', 'error_message', 'processed_at', 'attempts'])
             self.stderr.write(self.style.ERROR(
-                'Receipt #%d failed — %s' % (receipt.id, receipt.error_message)))
+                'Receipt #%d failed after %d attempts — %s'
+                % (receipt.id, receipt.attempts, log_message)))
             return
 
+        # Still pending as far as the page is concerned: an outage is not this
+        # receipt's fault, and it will be picked up again on its own.
         receipt.status = Receipt.STATUS_PENDING
         receipt.started_at = None
-        receipt.error_message = message
-        receipt.save(update_fields=[
-            'status', 'started_at', 'error_message', 'attempts'])
+        receipt.save(update_fields=['status', 'started_at', 'attempts'])
         self.stderr.write(self.style.WARNING(
             'Receipt #%d requeued (attempt %d/%d) — %s'
-            % (receipt.id, receipt.attempts, MAX_ATTEMPTS, message)))
+            % (receipt.id, receipt.attempts, MAX_ATTEMPTS, log_message)))
