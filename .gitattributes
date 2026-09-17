@@ -1,3 +1,16 @@
 # Shell scripts must keep LF endings or they break on Linux
 *.sh text eol=lf
 *.service text eol=lf
+
+# Binary files must never be line-ending converted. Git usually guesses this
+# right, but a wrong guess on a Windows checkout silently corrupts the file,
+# and "the PDF in the repo is broken" is a hard thing to trace back to here.
+*.pdf binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary
