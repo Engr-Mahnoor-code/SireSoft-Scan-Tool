@@ -30,6 +30,11 @@ development server, and it dies the moment the SSH session closes.
 `runserver` is for a laptop, where `127.0.0.1` really is your own machine. On
 the server, gunicorn under systemd is what serves the app, on port 8002.
 
+If you try it here anyway, it now stops with "That port is already in use" -
+manage.py defaults `runserver` to APP_PORT, which gunicorn already holds. That
+refusal is the point: it says the app is running, rather than quietly starting
+a second one on a port nobody can reach.
+
 ## Is it running?   <-- needed 99% of the time
 
     systemctl is-active siresoft-receiptiq siresoft-receiptiq-worker
@@ -101,9 +106,15 @@ previous CSS and JS and the change appears not to have worked.
 
 ## Testing code on a spare port (never use 8002)
 
+A bare `runserver` will refuse here, because 8002 belongs to gunicorn. Name a
+free port explicitly:
+
     source venv/bin/activate
     python manage.py runserver 0.0.0.0:8003
     # Ctrl+C to stop, then: deactivate
+
+On a laptop none of this applies: `python manage.py runserver` picks up 8002 on
+its own, so the app sits at http://127.0.0.1:8002 - the same port as the server.
 
 ## The extraction worker
 
