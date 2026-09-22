@@ -1,6 +1,8 @@
 import os
 
 from django.db import models
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
 from django.contrib.auth.models import User
 
 
@@ -63,3 +65,25 @@ class Receipt(models.Model):
     @property
     def is_finished(self):
         return self.status in (self.STATUS_SUCCESS, self.STATUS_FAILED)
+
+
+@receiver(post_delete, sender=Receipt)
+def delete_receipt_file(sender, instance, **kwargs):
+    """
+    Remove the uploaded file when its receipt row goes.
+
+    Django deletes the row and leaves the file, which is the safe default for a
+    framework but wrong here: nothing else ever references that file, so it just
+    accumulates. Deleting ten failed receipts once already left ten files behind
+    with no way to tell them from live ones except by comparing against the
+    table.
+
+    Failures are swallowed on purpose - the row is already gone by this point,
+    and raising here would turn a tidy-up into a broken delete.
+    """
+    if not instance.file:
+        return
+    try:
+        instance.file.delete(save=False)
+    except Exception:
+        pass
