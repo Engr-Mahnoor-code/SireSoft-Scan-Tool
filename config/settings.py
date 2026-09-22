@@ -28,10 +28,15 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
-    'django.contrib.staticfiles',
-    'rest_framework',
+
+    # Ahead of django.contrib.staticfiles on purpose: management commands
+    # resolve in this order, and apps.receipts overrides `runserver` so it
+    # prints addresses that can actually be opened instead of 0.0.0.0.
     'apps.accounts',
     'apps.receipts',
+
+    'django.contrib.staticfiles',
+    'rest_framework',
 ]
 
 MIDDLEWARE = [
