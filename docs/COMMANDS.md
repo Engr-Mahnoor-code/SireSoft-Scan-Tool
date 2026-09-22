@@ -1,36 +1,88 @@
 # siresoft-receiptiq - Server Commands
 
-The app runs as a systemd service. It starts on boot and restarts on crash.
-You do NOT need to start it manually.
-
-    URL (on VPN):  http://10.0.2.2:8002
-    URL (anywhere): the Cloudflare tunnel - see "Public URL" below
     Project dir:   /home/siresoft/siresoft-receiptiq
-    Service name:  siresoft-receiptiq
+    Services:      siresoft-receiptiq, siresoft-receiptiq-worker,
+                   siresoft-receiptiq-tunnel
     Port:          8002
 
-## Login
+## How to open the project
+
+**There is no command to run.** The app is already running and has been since
+the server booted - systemd starts it, and restarts it if it crashes. To use
+it, just open a browser:
+
+| Situation | Address |
+|---|---|
+| Connected to the VPN | `http://10.0.2.2:8002` |
+| VPN off, anywhere | the tunnel address - see "Public URL" below |
+
+`10.0.2.2` is a private address inside the VPN. With the VPN off it is not
+merely slow, it is unreachable - nothing on the server can change that, which
+is what the tunnel is for.
+
+### Do not run `manage.py runserver` on the server
+
+It looks like it should work and it does not. `runserver` binds to
+`127.0.0.1:8000`, which means the server's own loopback, so it answers only
+from inside that machine and nothing on your laptop can reach it. It is also a
+development server, and it dies the moment the SSH session closes.
+
+`runserver` is for a laptop, where `127.0.0.1` really is your own machine. On
+the server, gunicorn under systemd is what serves the app, on port 8002.
+
+## Is it running?   <-- needed 99% of the time
+
+    systemctl is-active siresoft-receiptiq siresoft-receiptiq-worker
+    curl -I http://10.0.2.2:8002/
+
+Two "active" lines and `HTTP/1.1 302 Found` mean yes. The 302 is the app
+redirecting to its login page, which is the correct answer for a logged-out
+request.
+
+For more detail:
+
+    systemctl status siresoft-receiptiq --no-pager
+
+Good signs: "active (running)" and "enabled".
+
+## Start, stop, restart
+
+    sudo systemctl start   siresoft-receiptiq siresoft-receiptiq-worker
+    sudo systemctl restart siresoft-receiptiq siresoft-receiptiq-worker
+    sudo systemctl stop    siresoft-receiptiq siresoft-receiptiq-worker
+
+`start` on something already running does nothing - that is fine, not an error.
+
+Run these one line at a time. Pasting several together while `sudo` is waiting
+for a password feeds the next line in as the password, and the rest silently
+never run.
+
+## Log in to the server
 
     ssh siresoft@10.0.2.2
     cd ~/siresoft-receiptiq
 
-## Check that it is running   <-- needed 99% of the time
+## Deploying a code change
 
-    systemctl status siresoft-receiptiq --no-pager
-    systemctl is-active siresoft-receiptiq
-    curl -I http://10.0.2.2:8002/
+Write and commit the change on your laptop, push it, then on the server:
 
-Good signs: "active (running)", "enabled", and HTTP 200 or 302.
-
-## Restart (only after changing code or .env)
-
+    cd ~/siresoft-receiptiq
+    git pull
+    sudo restorecon -v deploy/*.sh
+    ./venv/bin/python manage.py migrate              # only if models changed
+    ./venv/bin/python manage.py collectstatic --noinput
     sudo systemctl restart siresoft-receiptiq siresoft-receiptiq-worker
 
-The worker is the process that actually reads receipts with the local model.
-Restart it too, or the app will serve new code while the extraction keeps
-running the old.
+Restart **both** services. The worker is the process that actually reads
+receipts with the local model, so restarting only the app leaves new code being
+served while extraction still runs the old.
 
-Python code is loaded into memory, so edits do not apply until a restart.
+Python is loaded into memory at start, so an edit on disk changes nothing until
+a restart. `collectstatic` matters just as much: WhiteNoise serves hashed
+filenames out of `staticfiles/`, so without it the browser keeps getting the
+previous CSS and JS and the change appears not to have worked.
+
+`restorecon` is not optional here - see the note in deploy/README.md.
 
 ## Logs
 
