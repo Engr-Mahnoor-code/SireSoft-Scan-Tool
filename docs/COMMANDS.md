@@ -31,9 +31,9 @@ development server, and it dies the moment the SSH session closes.
 the server, gunicorn under systemd is what serves the app, on port 8002.
 
 If you try it here anyway, it now stops with "That port is already in use" -
-manage.py defaults `runserver` to APP_PORT, which gunicorn already holds. That
-refusal is the point: it says the app is running, rather than quietly starting
-a second one on a port nobody can reach.
+manage.py defaults `runserver` to `0.0.0.0:APP_PORT`, and gunicorn already holds
+8002. That refusal is the point: it says the app is running, rather than quietly
+starting a second one on a port nobody can reach.
 
 ## Is it running?   <-- needed 99% of the time
 
@@ -113,8 +113,14 @@ free port explicitly:
     python manage.py runserver 0.0.0.0:8003
     # Ctrl+C to stop, then: deactivate
 
-On a laptop none of this applies: `python manage.py runserver` picks up 8002 on
-its own, so the app sits at http://127.0.0.1:8002 - the same port as the server.
+On a laptop none of this applies: `python manage.py runserver` picks up
+`0.0.0.0:8002` on its own, so the app sits at http://127.0.0.1:8002 - the same
+port as the server, and reachable from another device on the same network by
+that laptop's own address.
+
+`0.0.0.0` means every interface, so on untrusted wifi that offers the
+development server to everyone on the network. Put `RUNSERVER_HOST=127.0.0.1`
+in `.env` to keep it to your own machine.
 
 ## The extraction worker
 
