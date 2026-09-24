@@ -1,0 +1,14 @@
+{% for field in form %}
+<div class="login-group">
+  <label class="login-label" for="{{ field.id_for_label }}"
+    >{{ field.label }}</label
+  >
+  {{ field }} {% if field.errors %}
+  <span class="login-field-error">{{ field.errors|join:" " }}</span>
+  {% endif %} {% if field.name == "password" and forgot_link %}
+  <a class="login-forgot" href="{% url 'accounts:password_reset' %}"
+    >Forgot your password?</a
+  >
+  {% endif %}
+</div>
+{% endfor %}

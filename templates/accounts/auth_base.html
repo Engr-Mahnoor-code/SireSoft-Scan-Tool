@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}
+  Sign-in style page: the SireSoft hero banner over one white card, with no
+  navbar or footer. Pages fill the card through the "card" block.
+{% endcomment %}
+{% block body_class %}page-login{% endblock %}
+{% block navbar %}{% endblock %}
+{% block footer %}{% endblock %}
+{% block content %}
+<section class="hero-banner">
+  <div class="hero-brand">
+    <img
+      src="{% static 'images/header-icon2.png' %}"
+      alt=""
+      class="hero-logo-icon"
+    />
+    <div class="hero-brand-text">
+      <img
+        src="{% static 'images/header-wordmark2.png' %}"
+        alt="SireSoft"
+        class="hero-logo-wordmark"
+      />
+      <p class="hero-tagline">Leader in Innovation</p>
+    </div>
+  </div>
+  <h1 class="hero-title">SireSoft ReceiptIQ Tool</h1>
+</section>
+
+<div class="login-page">
+  <div class="login-wrap">
+    <div class="login-card">
+      {% block card %}{% endblock %}
+
+      <p class="login-copyright">
+        &copy; {% now "Y" %}
+        <a href="https://siresoft.com/">SireSoft</a>
+        - All rights reserved. A LoneGroup Company.
+      </p>
+    </div>
+  </div>
+</div>
+{% endblock %}

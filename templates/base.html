@@ -14,7 +14,8 @@
     <link rel="stylesheet" href="{% static 'css/main.css' %}" />
     {% block extra_css %}{% endblock %}
   </head>
-  <body>
+  <body class="{% block body_class %}{% endblock %}">
+    {% block navbar %}
     <nav class="navbar">
       <div class="navbar-inner">
         <a href="{% url 'receipts:index' %}" class="navbar-brand">
@@ -49,6 +50,7 @@
         {% endif %}
       </div>
     </nav>
+    {% endblock %}
 
     <main class="main-content">
       {% if messages %}
@@ -60,9 +62,11 @@
       {% endif %} {% block content %}{% endblock %}
     </main>
 
+    {% block footer %}
     <footer class="footer">
       <p>&copy; {% now "Y" %} SireSoft. All rights reserved.</p>
     </footer>
+    {% endblock %}
 
     {% block extra_js %}{% endblock %}
   </body>

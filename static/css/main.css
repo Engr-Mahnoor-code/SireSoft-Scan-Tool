@@ -460,6 +460,243 @@ img {
 
 .auth-form {}
 
+/* ---- Login page (hero banner + light sign-in card) ----
+   Colours are the SireSoft PMT theme (pmt.siresoft.net, daisyUI "light"),
+   converted from its oklch values; sizes follow the same page. */
+body.page-login {
+    --pmt-base-100: #fbfcfd;
+    --pmt-base-300: #e1e5eb;
+    --pmt-ink: #010515;
+    --pmt-ink-rgb: 1, 5, 21;
+    --pmt-primary: #041b67;
+    --pmt-primary-border: #04195f;
+    --pmt-primary-content: #f9f8f7;
+    --pmt-link: #0525a8;
+    --pmt-error: #cc3d3d;
+    background: var(--pmt-base-100);
+    color: var(--pmt-ink);
+    line-height: 1.5;
+    font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.page-login .main-content {
+    max-width: none;
+    padding: 0;
+    flex: 1;
+}
+
+/* The photo carries the banner's blues; PMT lays only a 10% #0525A8 wash
+   over it. */
+.hero-banner {
+    position: relative;
+    height: 25rem;
+    background: var(--pmt-link) url('../images/hero-banner.jpg') center / cover no-repeat;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 0 1rem;
+}
+
+.hero-banner::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(5, 37, 168, 0.1);
+    pointer-events: none;
+}
+
+.hero-banner > * {
+    position: relative;
+}
+
+.hero-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    margin-bottom: 2rem;
+}
+
+.hero-logo-icon {
+    height: 3rem;
+    width: auto;
+    flex-shrink: 0;
+}
+
+.hero-brand-text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1;
+}
+
+.hero-logo-wordmark {
+    height: 2rem;
+    width: auto;
+    display: block;
+}
+
+.hero-tagline {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.025em;
+    text-align: center;
+    margin-top: 0.25rem;
+    line-height: 1;
+}
+
+.hero-title {
+    font-family: inherit;
+    font-size: 2.25rem;
+    line-height: 2.5rem;
+    font-weight: 700;
+    letter-spacing: 0.025em;
+    color: #fff;
+}
+
+.login-page {
+    display: flex;
+    justify-content: center;
+    margin: 2rem 0;
+}
+
+.login-wrap {
+    width: 28rem;
+    max-width: 100%;
+    padding: 1rem;
+}
+
+.login-card {
+    background: var(--pmt-base-100);
+    border: 1px solid var(--pmt-base-300);
+    border-radius: 0.5rem;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    padding: 2rem 1.5rem;
+}
+
+.login-heading {
+    text-align: center;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    color: rgba(var(--pmt-ink-rgb), 0.6);
+}
+
+.login-errors {
+    font-size: 0.875rem;
+    color: var(--pmt-error);
+    margin-top: 1.5rem;
+}
+
+.login-form {
+    margin-top: 1.5rem;
+}
+
+.login-group {
+    margin-top: 0.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.login-label {
+    display: block;
+    font-weight: 700;
+    color: var(--pmt-ink);
+    margin-bottom: 0.25rem;
+}
+
+.login-page .form-input {
+    height: 2.5rem;
+    background: var(--pmt-base-100);
+    border: 1px solid rgba(var(--pmt-ink-rgb), 0.2);
+    border-radius: 0.375rem;
+    box-shadow: 0 1px rgba(var(--pmt-ink-rgb), 0.1) inset;
+    color: var(--pmt-ink);
+    font-family: inherit;
+    font-size: 0.875rem;
+    padding: 0 0.75rem;
+}
+
+.login-page .form-input:focus {
+    border-color: rgba(var(--pmt-ink-rgb), 0.2);
+    box-shadow: 0 1px rgba(var(--pmt-ink-rgb), 0.1);
+    outline: 2px solid rgba(var(--pmt-ink-rgb), 0.2);
+    outline-offset: 2px;
+}
+
+.login-page .form-input::placeholder {
+    color: rgba(var(--pmt-ink-rgb), 0.5);
+}
+
+.login-field-error {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--pmt-error);
+    margin-top: 0.25rem;
+}
+
+.login-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 2.5rem;
+    background: var(--pmt-primary);
+    color: var(--pmt-primary-content);
+    border: 1px solid var(--pmt-primary-border);
+    border-radius: 0.375rem;
+    font-family: inherit;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 3px 2px -2px rgba(4, 27, 103, 0.3), 0 4px 3px -2px rgba(4, 27, 103, 0.3);
+    transition: background-color 0.2s;
+}
+
+.login-btn:hover {
+    background: #031556;
+}
+
+.login-forgot {
+    display: inline-block;
+    font-size: 0.8em;
+    color: inherit;
+    margin-top: 0.25rem;
+}
+
+.login-forgot:hover {
+    text-decoration: underline;
+}
+
+.login-note {
+    font-size: 0.875rem;
+    color: rgba(var(--pmt-ink-rgb), 0.7);
+    text-align: center;
+    margin-top: 1rem;
+}
+
+.login-back {
+    text-align: center;
+    font-size: 0.875rem;
+    margin-top: 1.5rem;
+}
+
+.login-back a,
+.login-copyright a {
+    color: var(--pmt-link);
+    font-weight: 500;
+}
+
+.login-copyright {
+    text-align: center;
+    font-size: 0.75rem;
+    line-height: 1rem;
+    color: rgba(var(--pmt-ink-rgb), 0.5);
+    margin-top: 1.5rem;
+}
+
 .auth-footer {
     text-align: center;
     font-size: 0.85rem;
@@ -789,4 +1026,14 @@ img {
     .auth-card {
         padding: 1.75rem 1.25rem;
     }
+
+    .hero-banner {
+        height: 18rem;
+    }
+
+    .hero-title {
+        font-size: 1.5rem;
+        line-height: 2rem;
+    }
+
 }
