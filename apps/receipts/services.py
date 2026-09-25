@@ -173,6 +173,39 @@ def _render_pdf_page(file_data: bytes, max_edge: int) -> bytes:
         doc.close()
 
 
+def render_pdf_preview(file_data: bytes, max_edge: int = 2000) -> bytes:
+    """
+    Page 1 of a PDF as a PNG for showing on the detail page.
+
+    A receipt saved as PDF is usually a photo placed on a blank page under a
+    title. When page 1 carries images, only the area they cover is rendered,
+    at their own resolution, so the page shows the receipt and not the sheet
+    it sits on. A text-only PDF renders the whole page.
+    """
+    renderer = _load_pdf_renderer()
+    doc = renderer.open(stream=file_data, filetype='pdf')
+    try:
+        page = doc.load_page(0)
+        clip = page.rect
+        dpi = PDF_RENDER_DPI
+        images = [info for info in page.get_image_info()
+                  if renderer.Rect(info['bbox']).intersects(page.rect)]
+        if images:
+            clip = renderer.Rect()
+            for info in images:
+                clip |= renderer.Rect(info['bbox'])
+            clip &= page.rect
+            # Match the pixels the embedded image actually has.
+            widest = max(images, key=lambda i: renderer.Rect(i['bbox']).width)
+            dpi = int(widest['width'] * 72
+                      / (renderer.Rect(widest['bbox']).width or 1))
+        longest_points = max(clip.width, clip.height) or 1
+        dpi = min(dpi, int(max_edge * 72 / longest_points))
+        return page.get_pixmap(dpi=max(dpi, 48), clip=clip).tobytes('png')
+    finally:
+        doc.close()
+
+
 def _shrink_image(file_data: bytes, mime_type: str, max_edge: int) -> bytes:
     """
     Scale an image down so its longest edge is at most `max_edge` pixels.

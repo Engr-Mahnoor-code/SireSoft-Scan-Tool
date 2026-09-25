@@ -135,19 +135,12 @@
   <div class="card result-card">
     <h2 class="card-title">Receipt Image</h2>
     {% url 'receipts:file' receipt.pk as file_url %}
-    {% if receipt.content_type == 'application/pdf' %}
-    <object class="receipt-pdf" data="{{ file_url }}" type="application/pdf">
-      <p class="text-muted">
-        This browser can't show the PDF here.
-        <a href="{{ file_url }}" target="_blank" rel="noopener">Open it</a>.
-      </p>
-    </object>
-    {% else %}
+    {% url 'receipts:preview' receipt.pk as preview_url %}
+    {# PDFs come back rendered as PNG, so every receipt shows the same way. #}
     <a href="{{ file_url }}" target="_blank" rel="noopener" class="receipt-image-link">
-      <img src="{{ file_url }}" alt="Uploaded receipt {{ receipt.filename }}"
+      <img src="{{ preview_url }}" alt="Uploaded receipt {{ receipt.filename }}"
         class="receipt-image" loading="lazy" />
     </a>
-    {% endif %}
     <p class="receipt-image-name text-muted">{{ receipt.filename }}</p>
   </div>
 </div>

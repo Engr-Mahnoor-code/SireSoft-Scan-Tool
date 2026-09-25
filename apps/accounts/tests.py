@@ -26,10 +26,11 @@ class LoginViewTests(TestCase):
             self.url, {'username': 'yasir', 'password': 's3cret-pass'})
         self.assertRedirects(response, '/', fetch_redirect_response=False)
 
-    def test_wrong_password_names_email_and_password(self):
+    def test_wrong_password_shows_no_error_line(self):
         response = self.client.post(
             self.url, {'username': 'yasir@example.com', 'password': 'nope'})
-        self.assertContains(
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(
             response,
             'The email address and/or password you specified are not correct.')
 

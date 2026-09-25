@@ -9,14 +9,6 @@
 </p>
 {% endif %}
 
-{% if form.non_field_errors %}
-<div class="login-errors">
-  {% for error in form.non_field_errors %}
-  <p>{{ error }}</p>
-  {% endfor %}
-</div>
-{% endif %}
-
 <form method="post" class="login-form">
   {% csrf_token %}
   {% include "accounts/_form_fields.html" with forgot_link=True %}
