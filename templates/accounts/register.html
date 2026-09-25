@@ -1,41 +1,24 @@
-{% extends "base.html" %}
-{% load static %}
-{% block title %}Create Account — ReceiptIQ{% endblock %}
-{% block content %}
-<div class="auth-page">
-  <div class="auth-card">
-    <div class="auth-logo">
-      <img src="{% static 'images/header-logo.png' %}" alt="ReceiptIQ" />
-    </div>
-    <h1 class="auth-title">Create Account</h1>
-    <p class="auth-subtitle">Join ReceiptIQ and start scanning</p>
+{% extends "accounts/auth_base.html" %}
+{% block title %}Sign Up — SireSoft Scan Tool{% endblock %}
+{% block card %}
+<p class="login-heading">Create your account</p>
 
-    <form method="post" class="auth-form">
-      {% csrf_token %} {% for field in form %}
-      <div class="form-group">
-        <label class="form-label" for="{{ field.id_for_label }}"
-          >{{ field.label }}</label
-        >
-        {{ field }} {% if field.help_text %}
-        <span class="field-hint">{{ field.help_text }}</span>
-        {% endif %} {% if field.errors %}
-        <span class="field-error">{{ field.errors|join:", " }}</span>
-        {% endif %}
-      </div>
-      {% endfor %} {% if form.non_field_errors %}
-      <div class="form-errors">
-        {% for error in form.non_field_errors %}
-        <p class="field-error">{{ error }}</p>
-        {% endfor %}
-      </div>
-      {% endif %}
-
-      <button type="submit" class="btn btn-full">Create Account</button>
-    </form>
-
-    <p class="auth-footer">
-      Already have an account? <a href="{% url 'accounts:login' %}">Sign In</a>
-    </p>
-  </div>
+{% if form.non_field_errors %}
+<div class="login-errors">
+  {% for error in form.non_field_errors %}
+  <p>{{ error }}</p>
+  {% endfor %}
 </div>
+{% endif %}
+
+<form method="post" class="login-form">
+  {% csrf_token %}
+  {% include "accounts/_form_fields.html" %}
+  <button type="submit" class="login-btn">Sign Up</button>
+</form>
+
+<p class="login-back">
+  Already have an account?
+  <a href="{% url 'accounts:login' %}">Sign In</a>
+</p>
 {% endblock %}

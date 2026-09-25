@@ -3,6 +3,12 @@
 {% block card %}
 <p class="login-heading">Sign in to your workspace</p>
 
+{% if registered %}
+<p class="login-success">
+  Account created. Sign in with your email and password.
+</p>
+{% endif %}
+
 {% if form.non_field_errors %}
 <div class="login-errors">
   {% for error in form.non_field_errors %}
@@ -16,4 +22,9 @@
   {% include "accounts/_form_fields.html" with forgot_link=True %}
   <button type="submit" class="login-btn">Sign In</button>
 </form>
+
+<div class="login-divider"><span>Don't have an account?</span></div>
+<a href="{% url 'accounts:register' %}" class="login-btn login-btn-outline"
+  >Sign Up</a
+>
 {% endblock %}

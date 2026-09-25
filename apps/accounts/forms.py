@@ -38,36 +38,56 @@ class LoginForm(AuthenticationForm):
 
 
 class RegisterForm(UserCreationForm):
+    """
+    Sign-up by email and password only.
+
+    People sign in with their email, so asking for a username as well was one
+    more thing to invent and forget. The email doubles as the username, capped
+    at the username column's 150 characters.
+    """
+
     email = forms.EmailField(
-        required=True,
+        label='Email',
+        max_length=150,
         widget=forms.EmailInput(
-            attrs={'class': 'form-input', 'placeholder': 'Email'})
+            attrs={'class': 'form-input', 'autocomplete': 'email',
+                   'placeholder': 'Email address'})
     )
 
     class Meta:
         model = User
-        fields = ('username', 'email', 'password1', 'password2')
+        fields = ('email',)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        for field_name, field in self.fields.items():
-            field.widget.attrs.setdefault('class', 'form-input')
-            if field_name == 'username':
-                field.widget.attrs['placeholder'] = 'Username'
-            elif field_name == 'password1':
-                field.widget.attrs['placeholder'] = 'Password'
-            elif field_name == 'password2':
-                field.widget.attrs['placeholder'] = 'Confirm Password'
+        placeholders = {'password1': 'Password',
+                        'password2': 'Confirm password'}
+        self.fields['password2'].label = 'Confirm Password'
+        for name, field in self.fields.items():
+            field.widget.attrs['class'] = 'form-input'
+            if name in placeholders:
+                field.widget.attrs['placeholder'] = placeholders[name]
+                field.widget.attrs['autocomplete'] = 'new-password'
+            # The rules list is long; the error names the one that failed.
+            field.help_text = ''
 
     def clean_email(self):
         # Sign-in by email only works while each address names one account,
         # so a second sign-up must not be able to take someone's address
         # (the admin's included) and lock them out of email login.
-        email = self.cleaned_data['email'].strip()
-        if User.objects.filter(email__iexact=email).exists():
+        email = self.cleaned_data['email'].strip().lower()
+        if (User.objects.filter(email__iexact=email).exists()
+                or User.objects.filter(username__iexact=email).exists()):
             raise forms.ValidationError(
                 'An account with this email already exists.')
         return email
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        user.username = self.cleaned_data['email']
+        if commit:
+            user.save()
+        return user
 
 
 class ResetPasswordForm(PasswordResetForm):
