@@ -103,3 +103,43 @@ class RegisterTests(TestCase):
                                   'password2': 'Other-pass-99'})
         self.assertFalse(form.is_valid())
         self.assertFalse(User.objects.filter(email='a@example.com').exists())
+
+
+class EnsureAdminTests(TestCase):
+    """manage.py ensure_admin makes the admin account match .env."""
+
+    def run_command(self, **env):
+        from unittest import mock
+        from django.core.management import call_command
+        with mock.patch.dict('os.environ', env, clear=False):
+            call_command('ensure_admin', stdout=__import__('io').StringIO())
+
+    def test_creates_admin_who_can_sign_in_both_ways(self):
+        from django.contrib.auth import authenticate
+        self.run_command(ADMIN_USERNAME='admin', ADMIN_EMAIL='admin@siresoft.com',
+                         ADMIN_PASSWORD='Pakistan12345')
+        user = User.objects.get(username='admin')
+        self.assertTrue(user.is_staff and user.is_superuser)
+        self.assertEqual(user.email, 'admin@siresoft.com')
+        self.assertIsNotNone(authenticate(username='admin', password='Pakistan12345'))
+
+    def test_repairs_an_existing_admin(self):
+        User.objects.create_user('admin', email='old@gmail.com', password='old')
+        self.run_command(ADMIN_USERNAME='admin', ADMIN_EMAIL='admin@siresoft.com',
+                         ADMIN_PASSWORD='Pakistan12345')
+        user = User.objects.get(username='admin')
+        self.assertEqual(user.email, 'admin@siresoft.com')
+        self.assertTrue(user.check_password('Pakistan12345'))
+        self.assertEqual(User.objects.count(), 1)
+
+    def test_refuses_without_a_password(self):
+        from django.core.management.base import CommandError
+        with self.assertRaises(CommandError):
+            self.run_command(ADMIN_EMAIL='admin@siresoft.com', ADMIN_PASSWORD='')
+
+    def test_refuses_an_email_owned_by_someone_else(self):
+        from django.core.management.base import CommandError
+        User.objects.create_user('mahnoor', email='admin@siresoft.com', password='x')
+        with self.assertRaises(CommandError):
+            self.run_command(ADMIN_USERNAME='admin', ADMIN_EMAIL='admin@siresoft.com',
+                             ADMIN_PASSWORD='Pakistan12345')
