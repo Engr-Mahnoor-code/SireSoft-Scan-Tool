@@ -3,22 +3,22 @@
   and as corrected. Laid out by PyMuPDF (apps/receipts/corrected.py): tables
   and plain block styles only.
 {% endcomment %}
-<div style="font-family: sans-serif; color: #1f2937; background: #fff8eb; padding: 12px 14px 14px 14px; font-size: 9.5px;">
-  <p style="margin: 0 0 6px 0; font-size: 11px; font-weight: bold; color: #b45309;">
+<div style="font-family: sans-serif; color: #1f2937; background: #f4f6fb; padding: 12px 14px 14px 14px; font-size: 9.5px;">
+  <p style="margin: 0 0 6px 0; font-size: 11px; font-weight: bold; color: #041b67;">
     Corrections ({{ changes|length }})
   </p>
   {% if changes %}
   <table style="width: 100%; border-collapse: collapse;">
     <tr>
-      <td style="width: 20%; padding: 4px 6px; font-weight: bold; color: #6b7280; border-bottom: 1px solid #f3d9a8;">Field</td>
-      <td style="width: 40%; padding: 4px 6px; font-weight: bold; color: #6b7280; border-bottom: 1px solid #f3d9a8;">On the scan</td>
-      <td style="width: 40%; padding: 4px 6px; font-weight: bold; color: #6b7280; border-bottom: 1px solid #f3d9a8;">Corrected to</td>
+      <td style="width: 20%; padding: 4px 6px; font-weight: bold; color: #6b7280; border-bottom: 1px solid #dde3ef;">Field</td>
+      <td style="width: 40%; padding: 4px 6px; font-weight: bold; color: #6b7280; border-bottom: 1px solid #dde3ef;">On the scan</td>
+      <td style="width: 40%; padding: 4px 6px; font-weight: bold; color: #6b7280; border-bottom: 1px solid #dde3ef;">Corrected to</td>
     </tr>
     {% for change in changes %}
     <tr>
-      <td style="width: 20%; padding: 4px 6px; font-weight: bold; vertical-align: top; border-bottom: 1px solid #f3d9a8;">{{ change.label }}</td>
-      <td style="width: 40%; padding: 4px 6px; color: #9ca3af; text-decoration: line-through; vertical-align: top; border-bottom: 1px solid #f3d9a8;">{{ change.old|default:"—" }}</td>
-      <td style="width: 40%; padding: 4px 6px; color: #065f46; font-weight: bold; vertical-align: top; border-bottom: 1px solid #f3d9a8;">{{ change.new|default:"(removed)" }}</td>
+      <td style="width: 20%; padding: 4px 6px; font-weight: bold; vertical-align: top; border-bottom: 1px solid #dde3ef;">{{ change.label }}</td>
+      <td style="width: 40%; padding: 4px 6px; color: #9ca3af; text-decoration: line-through; vertical-align: top; border-bottom: 1px solid #dde3ef;">{{ change.old|default:"—" }}</td>
+      <td style="width: 40%; padding: 4px 6px; color: #041b67; font-weight: bold; vertical-align: top; border-bottom: 1px solid #dde3ef;">{{ change.new|default:"(removed)" }}</td>
     </tr>
     {% endfor %}
   </table>
