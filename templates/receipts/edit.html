@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}Edit {{ receipt.vendor_name|default:"Receipt" }} — ReceiptIQ{% endblock %}
+{% block content %}
+<div class="page-header">
+  <a href="{% url 'receipts:detail' receipt.pk %}" class="back-link"
+    >&larr; Back to Receipt</a
+  >
+  <h1 class="page-title">Edit Receipt</h1>
+  <p class="page-subtitle">
+    Correct anything the scan read wrong. The picture is below for reference.
+  </p>
+</div>
+
+<form method="post" class="results-panel results-panel-full edit-form" novalidate>
+  {% csrf_token %}
+
+  <!-- Establishment -->
+  <div class="card result-card" id="establishment">
+    <h2 class="card-title">Establishment</h2>
+    {% with form=forms.establishment %}
+    <div class="edit-grid">
+      {% for field in form %}
+      <div class="form-group{% if field.name == 'address' %} edit-span{% endif %}">
+        <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.errors %}<span class="field-error">{{ field.errors|join:" " }}</span>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endwith %}
+  </div>
+
+  <!-- Items -->
+  <div class="card result-card" id="items">
+    <h2 class="card-title">Items</h2>
+    {{ forms.items.management_form }}
+    {% if forms.items.non_form_errors %}
+    <p class="field-error">{{ forms.items.non_form_errors|join:" " }}</p>
+    {% endif %}
+    <div class="table-wrapper">
+      <table class="items-table edit-items">
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th>Qty</th>
+            <th>Unit Price</th>
+            <th>Total</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="item-rows">
+          {% for form in forms.items %}
+          {% include "receipts/_edit_item_row.html" %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <button type="button" class="btn btn-outline btn-sm edit-add" id="add-item">
+      + Add item
+    </button>
+    <template id="item-template">
+      {% with form=forms.items.empty_form %}
+      {% include "receipts/_edit_item_row.html" %}
+      {% endwith %}
+    </template>
+  </div>
+
+  <!-- Bill Summary -->
+  <div class="card result-card" id="bill">
+    <h2 class="card-title">Bill Summary</h2>
+    <div class="edit-grid">
+      {% for field in forms.bill %}
+      <div class="form-group">
+        <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.errors %}<span class="field-error">{{ field.errors|join:" " }}</span>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Insights -->
+  <div class="card result-card" id="insights">
+    <h2 class="card-title">Insights</h2>
+    {% with field=forms.notes.insights %}
+    <div class="form-group">
+      {{ field }}
+      <span class="field-hint">{{ field.help_text }}</span>
+    </div>
+    {% endwith %}
+  </div>
+
+  <div class="edit-actions">
+    <a href="{% url 'receipts:detail' receipt.pk %}" class="btn btn-outline">Cancel</a>
+    <button type="submit" class="btn">Save Changes</button>
+  </div>
+</form>
+
+{% if receipt.file %}
+<div class="results-panel results-panel-full receipt-image-panel">
+  <div class="card result-card">
+    <h2 class="card-title">Receipt Image</h2>
+    <a href="{% url 'receipts:file' receipt.pk %}" target="_blank" rel="noopener"
+      class="receipt-image-link">
+      <img src="{% url 'receipts:preview' receipt.pk %}"
+        alt="Uploaded receipt {{ receipt.filename }}" class="receipt-image" />
+    </a>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  (function () {
+    var rows = document.getElementById('item-rows');
+    var total = document.getElementById('id_items-TOTAL_FORMS');
+    var template = document.getElementById('item-template');
+
+    document.getElementById('add-item').addEventListener('click', function () {
+      var index = parseInt(total.value, 10);
+      var html = template.innerHTML.replace(/__prefix__/g, index);
+      rows.insertAdjacentHTML('beforeend', html);
+      total.value = index + 1;
+      rows.lastElementChild.querySelector('input').focus();
+    });
+
+    // A card's Edit link on the detail page lands on its section (or on one
+    // field, like the address); put the cursor there so typing can start.
+    if (location.hash) {
+      var target = document.getElementById(location.hash.slice(1));
+      var field = target && (target.matches('input, textarea')
+        ? target : target.querySelector('input:not([type=hidden]), textarea'));
+      if (field) {
+        field.focus({ preventScroll: true });
+        field.scrollIntoView({ block: 'center' });
+      }
+    }
+
+    // Removing a row ticks its DELETE box and hides it, so the formset
+    // numbering stays intact.
+    rows.addEventListener('click', function (event) {
+      var button = event.target.closest('.edit-remove');
+      if (!button) return;
+      var row = button.closest('tr');
+      row.querySelector('input[name$="-DELETE"]').checked = true;
+      row.hidden = true;
+    });
+  })();
+</script>
+{% endblock %}

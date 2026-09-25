@@ -199,3 +199,147 @@ class ReceiptPreviewTests(TestCase):
         receipt = self.make(b'not a pdf', 'r.pdf', 'application/pdf')
         with self.assertRaises(Http404):
             self.preview(receipt, self.owner)
+
+
+@override_settings(MEDIA_ROOT=MEDIA_ROOT)
+class ReceiptEditTests(TestCase):
+    """Owner and staff can correct a scan; nobody else can touch it."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user('owner', password='pw-12345')
+        self.other = User.objects.create_user('other', password='pw-12345')
+        self.admin = User.objects.create_user(
+            'boss', password='pw-12345', is_staff=True)
+        self.receipt = Receipt.objects.create(
+            user=self.owner, vendor_name='Orders', date='27 May, 2020',
+            total_amount=26.06, file=SimpleUploadedFile('r.png', b'img'),
+            content_type='image/png', status=Receipt.STATUS_SUCCESS,
+            extracted_data={
+                'establishment': {'name': 'Orders', 'date': '27 May, 2020',
+                                  'time': '9:41', 'address': 'Lexington'},
+                'items': [
+                    {'name': 'Stout', 'quantity': 2, 'unit_price': 19.0,
+                     'total': 38.0},
+                    {'name': 'Budweiser', 'quantity': 1, 'unit_price': 1.73,
+                     'total': 1.73},
+                ],
+                'bill_summary': {'subtotal': 23.06, 'grand_total': 26.06,
+                                 'payment_method': 'Apple pay'},
+                'insights': ['Paid with Apple pay.'],
+                'extra_key': 'kept',
+            })
+        self.url = reverse('receipts:edit', args=[self.receipt.pk])
+
+    def payload(self, **overrides):
+        data = {
+            'est-name': 'Ocean Reach Pub', 'est-date': '27 May, 2020',
+            'est-time': '6:00 PM', 'est-address': '1633 Hampton Meadows',
+            'items-TOTAL_FORMS': '3', 'items-INITIAL_FORMS': '2',
+            'items-MIN_NUM_FORMS': '0', 'items-MAX_NUM_FORMS': '200',
+            'items-0-name': 'Oatmeal Stout', 'items-0-quantity': '2',
+            'items-0-unit_price': '9.5', 'items-0-total': '19',
+            'items-1-name': 'Budweiser', 'items-1-quantity': '1',
+            'items-1-unit_price': '1.73', 'items-1-total': '1.73',
+            'items-1-DELETE': 'on',
+            'items-2-name': 'Stone Peak', 'items-2-quantity': '1',
+            'items-2-unit_price': '2.33', 'items-2-total': '2.33',
+            'bill-subtotal': '23.06', 'bill-tax': '', 'bill-discount': '',
+            'bill-tip': '', 'bill-grand_total': '26.06',
+            'bill-payment_method': 'Apple Pay',
+            'notes-insights': 'Paid with Apple Pay.\n\n  Delivered.  ',
+        }
+        data.update(overrides)
+        return data
+
+    def page(self, user, method='get', data=None):
+        # Rendered through the view: the test client's template
+        # instrumentation crashes on Django 5.1 under Python 3.14.
+        factory = RequestFactory()
+        request = factory.post('/', data) if method == 'post' else factory.get('/')
+        request.user = user
+        request._dont_enforce_csrf_checks = True
+        return views.edit(request, pk=self.receipt.pk)
+
+    def test_detail_page_has_edit_button(self):
+        request = RequestFactory().get('/')
+        request.user = self.owner
+        response = views.detail(request, pk=self.receipt.pk)
+        self.assertContains(response, f'href="{self.url}"')
+
+    def test_form_is_filled_from_the_scan(self):
+        response = self.page(self.owner)
+        self.assertContains(response, 'value="Orders"')
+        self.assertContains(response, 'value="Budweiser"')
+        self.assertContains(response, 'Paid with Apple pay.')
+
+    def test_owner_saves_corrections(self):
+        self.client.login(username='owner', password='pw-12345')
+        response = self.client.post(self.url, self.payload())
+        self.assertRedirects(
+            response, reverse('receipts:detail', args=[self.receipt.pk]),
+            fetch_redirect_response=False)
+
+        self.receipt.refresh_from_db()
+        data = self.receipt.extracted_data
+        self.assertEqual(data['establishment']['name'], 'Ocean Reach Pub')
+        self.assertEqual(data['establishment']['time'], '6:00 PM')
+        self.assertEqual([i['name'] for i in data['items']],
+                         ['Oatmeal Stout', 'Stone Peak'])
+        self.assertEqual(data['items'][0]['unit_price'], 9.5)
+        self.assertEqual(data['bill_summary']['tax'], 0.0)
+        self.assertEqual(data['bill_summary']['payment_method'], 'Apple Pay')
+        self.assertEqual(data['insights'],
+                         ['Paid with Apple Pay.', 'Delivered.'])
+        self.assertEqual(data['extra_key'], 'kept')
+        # History reads these columns, so they follow the edit.
+        self.assertEqual(self.receipt.vendor_name, 'Ocean Reach Pub')
+        self.assertEqual(self.receipt.total_amount, 26.06)
+        self.assertEqual(self.receipt.edited_by, self.owner)
+        self.assertIsNotNone(self.receipt.edited_at)
+
+    def test_admin_can_edit_anyones_receipt(self):
+        self.client.login(username='boss', password='pw-12345')
+        response = self.client.post(
+            self.url, self.payload(**{'bill-grand_total': '30'}))
+        self.assertEqual(response.status_code, 302)
+        self.receipt.refresh_from_db()
+        self.assertEqual(self.receipt.total_amount, 30.0)
+        self.assertEqual(self.receipt.edited_by, self.admin)
+
+    def test_other_user_cannot_open_or_save(self):
+        with self.assertRaises(Http404):
+            self.page(self.other)
+        with self.assertRaises(Http404):
+            self.page(self.other, 'post', self.payload())
+        self.receipt.refresh_from_db()
+        self.assertEqual(self.receipt.vendor_name, 'Orders')
+
+    def test_anonymous_is_sent_to_login(self):
+        response = self.client.post(self.url, self.payload())
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/auth/login/', response['Location'])
+
+    def test_bad_number_keeps_the_old_data(self):
+        response = self.page(self.owner, 'post',
+                             self.payload(**{'bill-grand_total': 'abc'}))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Enter a number.')
+        self.receipt.refresh_from_db()
+        self.assertEqual(self.receipt.vendor_name, 'Orders')
+        self.assertIsNone(self.receipt.edited_at)
+
+    def test_unfinished_scan_cannot_be_edited(self):
+        self.receipt.status = Receipt.STATUS_PROCESSING
+        self.receipt.save()
+        with self.assertRaises(Http404):
+            self.page(self.owner)
+
+    def test_edit_links_on_history_and_every_detail_card(self):
+        request = RequestFactory().get('/')
+        request.user = self.owner
+        self.assertContains(views.history(request), f'href="{self.url}"')
+        detail = views.detail(request, pk=self.receipt.pk)
+        self.assertContains(detail, 'Edit Receipt')
+        for anchor in ('#id_est-address', '#items', '#bill',
+                       '#id_notes-insights'):
+            self.assertContains(detail, f'href="{self.url}{anchor}"')

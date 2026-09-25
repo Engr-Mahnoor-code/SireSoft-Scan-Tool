@@ -16,7 +16,18 @@
       by {{ receipt.user.email|default:receipt.user.username }}
       {% endif %}
     </p>
+    {% if receipt.edited_at %}
+    <p class="page-subtitle edited-note">
+      Edited{% if receipt.edited_by %} by {{ receipt.edited_by.email|default:receipt.edited_by.username }}{% endif %}
+      on {{ receipt.edited_at|date:"F d, Y \a\t H:i" }}
+    </p>
+    {% endif %}
   </div>
+  {% if can_edit %}
+  <a href="{% url 'receipts:edit' receipt.pk %}" class="btn">
+    <svg class="icon-pencil" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Edit Receipt
+  </a>
+  {% endif %}
 </div>
 
 {% if receipt.extracted_data %} {% with data=receipt.extracted_data %}
@@ -24,7 +35,14 @@
 <div class="results-panel results-panel-full">
   <!-- Establishment -->
   <div class="card result-card">
-    <h2 class="card-title">Establishment</h2>
+    <div class="card-head">
+      <h2 class="card-title">Establishment</h2>
+      {% if can_edit %}
+      <a href="{% url 'receipts:edit' receipt.pk %}#id_est-address" class="card-edit">
+        <svg class="icon-pencil" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Edit
+      </a>
+      {% endif %}
+    </div>
     <div class="info-grid">
       <div class="info-item">
         <span class="info-label">Name</span>
@@ -56,7 +74,14 @@
   <!-- Items -->
   {% if data.items %}
   <div class="card result-card">
-    <h2 class="card-title">Items</h2>
+    <div class="card-head">
+      <h2 class="card-title">Items</h2>
+      {% if can_edit %}
+      <a href="{% url 'receipts:edit' receipt.pk %}#items" class="card-edit">
+        <svg class="icon-pencil" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Edit
+      </a>
+      {% endif %}
+    </div>
     <div class="table-wrapper">
       <table class="items-table">
         <thead>
@@ -85,7 +110,14 @@
   <!-- Bill Summary -->
   {% if data.bill_summary %}
   <div class="card result-card">
-    <h2 class="card-title">Bill Summary</h2>
+    <div class="card-head">
+      <h2 class="card-title">Bill Summary</h2>
+      {% if can_edit %}
+      <a href="{% url 'receipts:edit' receipt.pk %}#bill" class="card-edit">
+        <svg class="icon-pencil" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Edit
+      </a>
+      {% endif %}
+    </div>
     <div class="summary-list">
       {% if data.bill_summary.subtotal %}
       <div class="summary-row">
@@ -114,7 +146,14 @@
   <!-- Insights -->
   {% if data.insights %}
   <div class="card result-card">
-    <h2 class="card-title">Insights</h2>
+    <div class="card-head">
+      <h2 class="card-title">Insights</h2>
+      {% if can_edit %}
+      <a href="{% url 'receipts:edit' receipt.pk %}#id_notes-insights" class="card-edit">
+        <svg class="icon-pencil" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Edit
+      </a>
+      {% endif %}
+    </div>
     <ul class="insights-list">
       {% for insight in data.insights %}
       <li>{{ insight }}</li>

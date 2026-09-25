@@ -62,6 +62,11 @@ class Receipt(models.Model):
     # can be told apart from one that is genuinely still running.
     started_at = models.DateTimeField(null=True, blank=True)
     processed_at = models.DateTimeField(null=True, blank=True)
+    # Set when someone corrects the extracted data by hand.
+    edited_at = models.DateTimeField(null=True, blank=True)
+    edited_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='+')
 
     objects = ReceiptQuerySet.as_manager()
 
@@ -79,6 +84,20 @@ class Receipt(models.Model):
     @property
     def is_finished(self):
         return self.status in (self.STATUS_SUCCESS, self.STATUS_FAILED)
+
+    def set_extracted_data(self, data):
+        """
+        Store `data` and the list columns copied out of it.
+
+        History lists vendor, date and total from their own columns, so they
+        are refreshed every time the data changes, by the worker or by hand.
+        """
+        establishment = data.get('establishment') or {}
+        summary = data.get('bill_summary') or {}
+        self.vendor_name = establishment.get('name') or 'Unknown Vendor'
+        self.date = establishment.get('date') or 'N/A'
+        self.total_amount = summary.get('grand_total') or 0.0
+        self.extracted_data = data
 
 
 @receiver(post_delete, sender=Receipt)

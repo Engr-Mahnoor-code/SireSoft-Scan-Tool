@@ -167,13 +167,7 @@ class Command(BaseCommand):
                        'This receipt could not be read. Please try again.')
             return False
 
-        establishment = data.get('establishment', {})
-        summary = data.get('bill_summary', {})
-
-        receipt.vendor_name = establishment.get('name') or 'Unknown Vendor'
-        receipt.date = establishment.get('date') or 'N/A'
-        receipt.total_amount = summary.get('grand_total') or 0.0
-        receipt.extracted_data = data
+        receipt.set_extracted_data(data)
         receipt.status = Receipt.STATUS_SUCCESS
         receipt.error_message = ''
         receipt.processed_at = timezone.now()

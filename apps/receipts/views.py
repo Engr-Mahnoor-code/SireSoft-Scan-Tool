@@ -1,7 +1,10 @@
 from django.http import FileResponse, Http404, HttpResponse
-from django.shortcuts import render, get_object_or_404
+from django.contrib import messages
+from django.shortcuts import render, redirect, get_object_or_404
+from django.utils import timezone
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.clickjacking import xframe_options_sameorigin
+from .forms import ReceiptEditForms
 from .models import Receipt
 from .services import render_pdf_preview
 from .api_views import ALLOWED_MIME_TYPES, MAX_FILES_PER_UPLOAD, MAX_FILE_SIZE
@@ -29,8 +32,40 @@ def history(request):
 def detail(request, pk):
     """Detail page — view a single receipt's extracted data."""
     receipt = get_object_or_404(
-        Receipt.objects.visible_to(request.user), pk=pk)
-    return render(request, 'receipts/detail.html', {'receipt': receipt})
+        Receipt.objects.visible_to(request.user).select_related('edited_by'),
+        pk=pk)
+    return render(request, 'receipts/detail.html', {
+        'receipt': receipt,
+        'can_edit': receipt.status == Receipt.STATUS_SUCCESS,
+    })
+
+
+@login_required
+def edit(request, pk):
+    """
+    Correct what the scan read: establishment, items, totals and insights.
+
+    Open to whoever may view the receipt - its owner, or staff. Only finished
+    scans can be edited; a receipt still queued would have the worker write
+    over the correction.
+    """
+    receipt = get_object_or_404(
+        Receipt.objects.visible_to(request.user),
+        pk=pk, status=Receipt.STATUS_SUCCESS)
+
+    if request.method == 'POST':
+        forms = ReceiptEditForms(receipt, request.POST)
+        if forms.is_valid():
+            receipt.set_extracted_data(forms.cleaned_data())
+            receipt.edited_at = timezone.now()
+            receipt.edited_by = request.user
+            receipt.save()
+            messages.success(request, 'Receipt updated.')
+            return redirect('receipts:detail', pk=receipt.pk)
+    else:
+        forms = ReceiptEditForms(receipt)
+    return render(request, 'receipts/edit.html',
+                  {'receipt': receipt, 'forms': forms})
 
 
 @xframe_options_sameorigin

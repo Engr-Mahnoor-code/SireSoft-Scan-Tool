@@ -1,0 +1,17 @@
+<tr{% if form.DELETE.value %} hidden{% endif %}>
+  <td>
+    {{ form.name }}
+    {% if form.name.errors %}<span class="field-error">{{ form.name.errors|join:" " }}</span>{% endif %}
+  </td>
+  <td>{{ form.quantity }}</td>
+  <td>{{ form.unit_price }}</td>
+  <td>
+    {{ form.total }}
+    {% if form.non_field_errors %}<span class="field-error">{{ form.non_field_errors|join:" " }}</span>{% endif %}
+  </td>
+  <td>
+    <span hidden>{{ form.DELETE }}</span>
+    <button type="button" class="btn-icon edit-remove" title="Remove item"
+      aria-label="Remove item">&times;</button>
+  </td>
+</tr>
