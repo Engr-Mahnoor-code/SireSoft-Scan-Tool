@@ -25,6 +25,9 @@ class ItemForm(forms.Form):
         required=False, min_value=0, widget=_number(placeholder='1'))
     unit_price = forms.FloatField(required=False, widget=_number())
     total = forms.FloatField(required=False, widget=_number())
+    note = forms.CharField(
+        max_length=500, required=False,
+        widget=_input(placeholder='HSN, MRP, serial no. (optional)'))
 
 
 ItemFormSet = forms.formset_factory(
@@ -39,6 +42,16 @@ class DetailForm(forms.Form):
 
 DetailFormSet = forms.formset_factory(
     DetailForm, extra=0, can_delete=True, max_num=100, validate_max=True)
+
+
+class SummaryLineForm(forms.Form):
+    label = forms.CharField(max_length=100,
+                            widget=_input(placeholder='e.g. SGST, Shipping'))
+    amount = forms.FloatField(required=False, widget=_number())
+
+
+SummaryLineFormSet = forms.formset_factory(
+    SummaryLineForm, extra=0, can_delete=True, max_num=50, validate_max=True)
 
 
 class BillSummaryForm(forms.Form):
@@ -78,15 +91,18 @@ class ReceiptEditForms:
         self.items = ItemFormSet(data, prefix='items', initial=items)
         details = [d for d in stored.get('details') or [] if isinstance(d, dict)]
         self.details = DetailFormSet(data, prefix='details', initial=details)
-        self.bill = BillSummaryForm(
-            data, prefix='bill', initial=stored.get('bill_summary') or {})
+        bill = stored.get('bill_summary') or {}
+        self.bill = BillSummaryForm(data, prefix='bill', initial=bill)
+        lines = [l for l in bill.get('other_lines') or [] if isinstance(l, dict)]
+        self.lines = SummaryLineFormSet(data, prefix='lines', initial=lines)
         self.notes = InsightsForm(data, prefix='notes', initial={
             'insights': '\n'.join(str(i) for i in stored.get('insights') or [])})
 
     def is_valid(self):
         # Every form is validated so each one carries its own errors.
         results = [f.is_valid() for f in (self.establishment, self.details,
-                                          self.items, self.bill, self.notes)]
+                                          self.items, self.bill, self.lines,
+                                          self.notes)]
         return all(results)
 
     def cleaned_data(self):
@@ -106,6 +122,7 @@ class ReceiptEditForms:
                 'quantity': row.get('quantity') or 1.0,
                 'unit_price': row.get('unit_price') or 0.0,
                 'total': row.get('total') or 0.0,
+                'note': (row.get('note') or '').strip(),
             })
 
         details = []
@@ -123,6 +140,13 @@ class ReceiptEditForms:
                 bill[key] = value.strip()
             else:
                 bill[key] = value or 0.0
+        bill['other_lines'] = []
+        for form in self.lines.forms:
+            row = form.cleaned_data
+            if not row or row.get('DELETE') or not row.get('label', '').strip():
+                continue
+            bill['other_lines'].append({'label': row['label'].strip(),
+                                        'amount': row.get('amount') or 0.0})
 
         insights = [line.strip() for line in
                     self.notes.cleaned_data['insights'].splitlines()

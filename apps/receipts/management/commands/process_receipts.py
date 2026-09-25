@@ -168,6 +168,8 @@ class Command(BaseCommand):
             return False
 
         receipt.set_extracted_data(data)
+        receipt.scanned_data = data
+        receipt.clear_corrections()
         receipt.status = Receipt.STATUS_SUCCESS
         receipt.error_message = ''
         receipt.processed_at = timezone.now()
@@ -187,7 +189,7 @@ class Command(BaseCommand):
         upload page gets something a person can act on. Showing a raw API
         payload on screen helps nobody and looks broken.
         """
-        receipt.status = Receipt.STATUS_FAILED
+        receipt.status = self._failed_status(receipt)
         receipt.error_message = user_message or DEFAULT_USER_MESSAGE
         receipt.processed_at = timezone.now()
         receipt.save(update_fields=[
@@ -195,12 +197,22 @@ class Command(BaseCommand):
         self.stderr.write(self.style.ERROR(
             'Receipt #%d failed — %s' % (receipt.id, log_message)))
 
+    @staticmethod
+    def _failed_status(receipt):
+        """
+        A failed re-scan keeps the receipt's earlier data, so it stays a
+        success; `error_message` still tells the page the re-scan failed.
+        """
+        if receipt.extracted_data:
+            return Receipt.STATUS_SUCCESS
+        return Receipt.STATUS_FAILED
+
     def _requeue(self, receipt, log_message, user_message=None):
         """Send a receipt back to the queue, giving up after MAX_ATTEMPTS."""
         receipt.attempts += 1
 
         if receipt.attempts >= MAX_ATTEMPTS:
-            receipt.status = Receipt.STATUS_FAILED
+            receipt.status = self._failed_status(receipt)
             receipt.error_message = user_message or DEFAULT_USER_MESSAGE
             receipt.processed_at = timezone.now()
             receipt.save(update_fields=[

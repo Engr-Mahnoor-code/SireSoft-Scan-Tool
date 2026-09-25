@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 {% load static %}
 {% block title %}{{ receipt.vendor_name|default:"Receipt" }} — ReceiptIQ{% endblock %}
+{% block extra_css %}
+{% if receipt.is_rescanning %}<meta http-equiv="refresh" content="5" />{% endif %}
+{% endblock %}
 {% block content %}
 <div class="page-header page-header-row">
   <div>
@@ -28,12 +31,28 @@
     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg> Delete
   </a>
   {% if can_edit %}
+  <form method="post" action="{% url 'receipts:rescan' receipt.pk %}"
+    onsubmit="return confirm('Read the original picture again? The fresh reading replaces this data{% if receipt.edited_at %} and your edits{% endif %}.');">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-outline">&#8635; Re-scan</button>
+  </form>
   <a href="{% url 'receipts:edit' receipt.pk %}" class="btn">
     <svg class="icon-pencil" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Edit Receipt
   </a>
   {% endif %}
   </div>
 </div>
+
+{% if receipt.is_rescanning %}
+<div class="message message-info status-banner">
+  Re-scanning the original picture&hellip; this page refreshes by itself.
+</div>
+{% elif receipt.status == 'success' and receipt.error_message %}
+<div class="message message-warning status-banner">
+  The last re-scan failed: {{ receipt.error_message }} The data below is from
+  the earlier scan.
+</div>
+{% endif %}
 
 {% if receipt.extracted_data %} {% with data=receipt.extracted_data %}
 
@@ -122,7 +141,10 @@
         <tbody>
           {% for item in data.items %}
           <tr>
-            <td>{{ item.name|default:"—" }}</td>
+            <td>
+              {{ item.name|default:"—" }}
+              {% if item.note %}<span class="item-note">{{ item.note }}</span>{% endif %}
+            </td>
             <td>{{ item.quantity|default:"—" }}</td>
             <td>{{ item.unit_price|default:"—" }}</td>
             <td>{{ item.total|default:"—" }}</td>
@@ -163,6 +185,11 @@
         <span>Tip</span><span>{{ data.bill_summary.tip }}</span>
       </div>
       {% endif %}
+      {% for line in data.bill_summary.other_lines %}
+      <div class="summary-row">
+        <span>{{ line.label }}</span><span>{{ line.amount }}</span>
+      </div>
+      {% endfor %}
       <div class="summary-row summary-total">
         <span>Grand Total</span><span>{{ data.bill_summary.grand_total }}</span>
       </div>

@@ -2,6 +2,7 @@ import shutil
 import tempfile
 
 from django.contrib.auth.models import User
+from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.http import Http404
 from django.test import RequestFactory, TestCase, override_settings
@@ -254,6 +255,10 @@ class ReceiptEditTests(TestCase):
             'bill-subtotal': '23.06', 'bill-tax': '', 'bill-discount': '',
             'bill-tip': '', 'bill-grand_total': '26.06',
             'bill-payment_method': 'Apple Pay',
+            'lines-TOTAL_FORMS': '1', 'lines-INITIAL_FORMS': '0',
+            'lines-MIN_NUM_FORMS': '0', 'lines-MAX_NUM_FORMS': '50',
+            'lines-0-label': 'Delivery', 'lines-0-amount': '2',
+            'items-0-note': ' 6 Pack ',
             'notes-insights': 'Paid with Apple Pay.\n\n  Delivered.  ',
         }
         data.update(overrides)
@@ -295,6 +300,9 @@ class ReceiptEditTests(TestCase):
         self.assertEqual([i['name'] for i in data['items']],
                          ['Oatmeal Stout', 'Stone Peak'])
         self.assertEqual(data['items'][0]['unit_price'], 9.5)
+        self.assertEqual(data['items'][0]['note'], '6 Pack')
+        self.assertEqual(data['bill_summary']['other_lines'],
+                         [{'label': 'Delivery', 'amount': 2.0}])
         self.assertEqual(data['bill_summary']['tax'], 0.0)
         self.assertEqual(data['bill_summary']['payment_method'], 'Apple Pay')
         self.assertEqual(data['insights'],
@@ -358,9 +366,18 @@ class ReceiptEditTests(TestCase):
             self.assertContains(detail, f'href="{self.url}{anchor}"')
 
 
+def make_png(width=800, height=1000):
+    import pymupdf
+    picture = pymupdf.Pixmap(pymupdf.csRGB, pymupdf.IRect(0, 0, width, height), 0)
+    picture.clear_with(230)
+    return picture.tobytes('png')
+
+
 @override_settings(MEDIA_ROOT=MEDIA_ROOT)
 class CorrectedCopyAndDeleteTests(TestCase):
     """Saving an edit draws a corrected picture; delete removes everything."""
+
+    scan_bytes = make_png()
 
     def setUp(self):
         self.owner = User.objects.create_user(
@@ -370,7 +387,7 @@ class CorrectedCopyAndDeleteTests(TestCase):
             'boss', password='pw-12345', is_staff=True)
         self.receipt = Receipt.objects.create(
             user=self.owner, vendor_name='Zetran', total_amount=10.0,
-            file=SimpleUploadedFile('scan.png', b'original-scan-bytes'),
+            file=SimpleUploadedFile('scan.png', self.scan_bytes),
             content_type='image/png', status=Receipt.STATUS_SUCCESS,
             extracted_data={
                 'establishment': {'name': 'Zetran', 'address': 'Old Street'},
@@ -406,6 +423,10 @@ class CorrectedCopyAndDeleteTests(TestCase):
             'items-0-name': 'Phone', 'items-0-quantity': '1',
             'items-0-unit_price': '10', 'items-0-total': '10',
             'bill-grand_total': '10', 'notes-insights': '',
+            'lines-TOTAL_FORMS': '1', 'lines-INITIAL_FORMS': '0',
+            'lines-MIN_NUM_FORMS': '0', 'lines-MAX_NUM_FORMS': '50',
+            'lines-0-label': 'SGST@2.5', 'lines-0-amount': '0',
+            'items-0-note': 'HSN 463182',
         }
         response = views.edit(self.request(user, 'post', data),
                               pk=self.receipt.pk)
@@ -417,25 +438,55 @@ class CorrectedCopyAndDeleteTests(TestCase):
         self.save_edit(self.owner, 'Gulistan-e-Jauhar')
         self.assertTrue(self.receipt.corrected_file)
         png = pymupdf.Pixmap(self.receipt.corrected_file.read())
-        self.assertGreater(png.width, 500)
-        # The upload itself is untouched.
+        # As wide as the scan, and taller: banner above, corrections below.
+        self.assertEqual(png.width, 800)
+        self.assertGreater(png.height, 1000)
+        # The upload itself is untouched, and the scan's reading is kept.
         self.receipt.file.open('rb')
-        self.assertEqual(self.receipt.file.read(), b'original-scan-bytes')
+        self.assertEqual(self.receipt.file.read(), self.scan_bytes)
         self.receipt.file.close()
+        self.assertEqual(
+            self.receipt.scanned_data['establishment']['address'], 'Old Street')
 
-    def test_corrected_copy_shows_the_edited_values(self):
+    def test_corrections_list_old_and_new_values(self):
         from django.template.loader import render_to_string
-        self.receipt.extracted_data['establishment']['address'] = 'Gulistan-e-Jauhar'
-        self.receipt.edited_by = self.owner
-        html = render_to_string('receipts/corrected_receipt.html', {
-            'receipt': self.receipt,
-            'establishment': self.receipt.extracted_data['establishment'],
-            'items': self.receipt.extracted_data['items'],
-            'bill': self.receipt.extracted_data['bill_summary'],
-        })
-        self.assertIn('Gulistan-e-Jauhar', html)
-        self.assertIn('CORRECTED COPY', html)
-        self.assertIn('owner@example.com', html)
+        from .corrected import corrected_context
+        self.save_edit(self.owner, 'Gulistan-e-Jauhar')
+        context = corrected_context(self.receipt)
+        # The edit also added an invoice number, an item note and a line.
+        self.assertEqual(
+            [(c['label'], c['old'], c['new']) for c in context['changes']],
+            [('Address', 'Old Street', 'Gulistan-e-Jauhar'),
+             ('Invoice No.', '', 'BIL-00160'),
+             ('Item 1', 'Phone · 1 × 10.00 = 10.00',
+              'Phone · 1 × 10.00 = 10.00 (HSN 463182)'),
+             ('SGST@2.5', '', '0.00')])
+        banner = render_to_string('receipts/corrected_banner.html', context)
+        self.assertIn('owner@example.com', banner)
+        self.assertIn('CORRECTED', banner)
+
+    def test_a_later_edit_still_compares_with_the_scan(self):
+        from .corrected import corrected_context
+        self.save_edit(self.owner, 'First')
+        self.save_edit(self.owner, 'Second')
+        address = [c for c in corrected_context(self.receipt)['changes']
+                   if c['label'] == 'Address'][0]
+        self.assertEqual((address['old'], address['new']),
+                         ('Old Street', 'Second'))
+
+    def test_webp_scan_gets_a_corrected_copy(self):
+        import io
+
+        import pymupdf
+        from PIL import Image
+        out = io.BytesIO()
+        Image.new('RGB', (700, 900), 'white').save(out, format='WEBP')
+        self.receipt.file.save('scan.webp', ContentFile(out.getvalue()))
+        self.receipt.content_type = 'image/webp'
+        self.receipt.save()
+        self.save_edit(self.owner, 'Gulistan-e-Jauhar')
+        png = pymupdf.Pixmap(self.receipt.corrected_file.read())
+        self.assertEqual(png.width, 700)
 
     def test_a_second_edit_replaces_the_old_copy(self):
         self.save_edit(self.owner, 'First')
@@ -516,3 +567,96 @@ class ExtractionDetailsTests(TestCase):
     def test_missing_details_become_an_empty_list(self):
         from .services import _normalise
         self.assertEqual(_normalise({})['details'], [])
+
+
+    def test_item_notes_and_other_lines_are_kept(self):
+        from .services import _normalise
+        data = _normalise({
+            'items': [{'name': 'Samsung A30', 'total': 15999,
+                       'note': 'HSN 463182 · MRP 17999'}],
+            'bill_summary': {'other_lines': [
+                {'label': 'SGST@2.5', 'amount': '0.0'},
+                {'label': '', 'amount': 5},
+                {'label': 'Balance Due', 'amount': 29996}]},
+        })
+        self.assertEqual(data['items'][0]['note'], 'HSN 463182 · MRP 17999')
+        self.assertEqual(data['bill_summary']['other_lines'], [
+            {'label': 'SGST@2.5', 'amount': 0.0},
+            {'label': 'Balance Due', 'amount': 29996.0},
+        ])
+
+
+@override_settings(MEDIA_ROOT=MEDIA_ROOT)
+class RescanTests(TestCase):
+    """Re-scan reads the original again; a failed attempt keeps the old data."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user('owner', password='pw-12345')
+        self.other = User.objects.create_user('other', password='pw-12345')
+        self.receipt = Receipt.objects.create(
+            user=self.owner, vendor_name='Old', total_amount=5.0,
+            file=SimpleUploadedFile('scan.png', b'img'),
+            content_type='image/png', status=Receipt.STATUS_SUCCESS,
+            extracted_data={'establishment': {'name': 'Old'}, 'items': [],
+                            'bill_summary': {'grand_total': 5.0}})
+        self.url = reverse('receipts:rescan', args=[self.receipt.pk])
+
+    def test_owner_queues_a_rescan(self):
+        self.client.login(username='owner', password='pw-12345')
+        response = self.client.post(self.url)
+        self.assertEqual(response.status_code, 302)
+        self.receipt.refresh_from_db()
+        self.assertEqual(self.receipt.status, Receipt.STATUS_PENDING)
+        self.assertTrue(self.receipt.is_rescanning)
+
+    def test_get_does_not_queue(self):
+        self.client.login(username='owner', password='pw-12345')
+        self.client.get(self.url)
+        self.receipt.refresh_from_db()
+        self.assertEqual(self.receipt.status, Receipt.STATUS_SUCCESS)
+
+    def test_other_user_cannot_rescan(self):
+        request = RequestFactory().post('/')
+        request.user = self.other
+        with self.assertRaises(Http404):
+            views.rescan(request, pk=self.receipt.pk)
+
+    def test_rescanning_receipt_stays_in_history(self):
+        self.receipt.status = Receipt.STATUS_PENDING
+        self.receipt.save()
+        request = RequestFactory().get('/')
+        request.user = self.owner
+        self.assertContains(views.history(request), 'Old')
+
+    def test_worker_success_replaces_data_and_drops_corrections(self):
+        from unittest import mock
+        from django.core.files.base import ContentFile
+        from .management.commands.process_receipts import Command
+        self.receipt.corrected_file.save('c.png', ContentFile(b'png'))
+        self.receipt.edited_by = self.owner
+        self.receipt.status = Receipt.STATUS_PROCESSING
+        self.receipt.save()
+        fresh = {'establishment': {'name': 'Zetran'}, 'items': [],
+                 'bill_summary': {'grand_total': 9.0}, 'details': []}
+        with mock.patch('apps.receipts.management.commands.process_receipts'
+                        '.extract_receipt_data', return_value=fresh):
+            Command()._process(self.receipt)
+        self.receipt.refresh_from_db()
+        self.assertEqual(self.receipt.vendor_name, 'Zetran')
+        self.assertFalse(self.receipt.corrected_file)
+        self.assertIsNone(self.receipt.edited_by)
+
+    def test_worker_failure_keeps_the_earlier_data(self):
+        from unittest import mock
+        from .management.commands.process_receipts import Command
+        from .services import OllamaError
+        self.receipt.status = Receipt.STATUS_PROCESSING
+        self.receipt.save()
+        with mock.patch('apps.receipts.management.commands.process_receipts'
+                        '.extract_receipt_data',
+                        side_effect=OllamaError('bad', 'Could not read it.')):
+            Command()._process(self.receipt)
+        self.receipt.refresh_from_db()
+        self.assertEqual(self.receipt.status, Receipt.STATUS_SUCCESS)
+        self.assertEqual(self.receipt.vendor_name, 'Old')
+        self.assertEqual(self.receipt.error_message, 'Could not read it.')

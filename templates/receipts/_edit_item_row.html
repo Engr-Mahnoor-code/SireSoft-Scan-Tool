@@ -2,6 +2,7 @@
   <td>
     {{ form.name }}
     {% if form.name.errors %}<span class="field-error">{{ form.name.errors|join:" " }}</span>{% endif %}
+    <div class="edit-note">{{ form.note }}</div>
   </td>
   <td>{{ form.quantity }}</td>
   <td>{{ form.unit_price }}</td>

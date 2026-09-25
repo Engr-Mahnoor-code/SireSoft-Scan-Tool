@@ -7,8 +7,8 @@
   >
   <h1 class="page-title">Edit Receipt</h1>
   <p class="page-subtitle">
-    Correct anything the scan read wrong. Saving draws a corrected picture;
-    the original scan below stays as it was.
+    Correct anything the scan read wrong. Saving adds the corrections to a
+    corrected copy of the picture; the original scan is never altered.
   </p>
 </div>
 
@@ -114,6 +114,37 @@
       </div>
       {% endfor %}
     </div>
+
+    <h3 class="edit-subtitle">Other amount lines</h3>
+    {{ forms.lines.management_form }}
+    <p class="field-hint edit-hint">
+      Taxable amount, SGST, CGST, shipping, amount paid, balance due&hellip;
+    </p>
+    <div class="table-wrapper">
+      <table class="items-table edit-items edit-details">
+        <thead>
+          <tr>
+            <th>Label</th>
+            <th>Amount</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="line-rows">
+          {% for form in forms.lines %}
+          {% include "receipts/_edit_line_row.html" %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <button type="button" class="btn btn-outline btn-sm edit-add"
+      data-add-row="line-rows" data-prefix="lines" data-template="line-template">
+      + Add line
+    </button>
+    <template id="line-template">
+      {% with form=forms.lines.empty_form %}
+      {% include "receipts/_edit_line_row.html" %}
+      {% endwith %}
+    </template>
   </div>
 
   <!-- Insights -->

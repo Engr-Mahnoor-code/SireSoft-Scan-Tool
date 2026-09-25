@@ -2,6 +2,7 @@ import logging
 
 from django.http import FileResponse, Http404, HttpResponse
 from django.contrib import messages
+from django.db.models import Q
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from django.contrib.auth.decorators import login_required
@@ -27,8 +28,11 @@ def index(request):
 @login_required
 def history(request):
     """History page — receipts the worker finished successfully."""
+    # Receipts being re-scanned keep their earlier data, so they stay listed.
     receipts = (Receipt.objects.visible_to(request.user)
-                .filter(status=Receipt.STATUS_SUCCESS)
+                .filter(Q(status=Receipt.STATUS_SUCCESS)
+                        | Q(extracted_data__isnull=False))
+                .exclude(status=Receipt.STATUS_FAILED)
                 .select_related('user'))
     return render(request, 'receipts/history.html', {'receipts': receipts})
 
@@ -61,6 +65,10 @@ def edit(request, pk):
     if request.method == 'POST':
         forms = ReceiptEditForms(receipt, request.POST)
         if forms.is_valid():
+            if receipt.scanned_data is None:
+                # Receipts scanned before `scanned_data` existed: the data as
+                # it stands now is the best record of the scan there is.
+                receipt.scanned_data = receipt.extracted_data
             receipt.set_extracted_data(forms.cleaned_data())
             receipt.edited_at = timezone.now()
             receipt.edited_by = request.user
@@ -181,3 +189,27 @@ def delete(request, pk):
         return redirect('receipts:history')
     return render(request, 'receipts/confirm_delete.html',
                   {'receipt': receipt})
+
+
+@login_required
+def rescan(request, pk):
+    """
+    Send a receipt's original picture through extraction again.
+
+    For receipts read by an older, less thorough prompt, or read badly. The
+    fresh reading replaces the data and any hand edits; if it fails, the
+    earlier data is kept (see the worker). POST only, from the page's button.
+    """
+    receipt = get_object_or_404(
+        Receipt.objects.visible_to(request.user),
+        pk=pk, status__in=[Receipt.STATUS_SUCCESS, Receipt.STATUS_FAILED])
+    if request.method != 'POST':
+        return redirect('receipts:detail', pk=receipt.pk)
+    receipt.status = Receipt.STATUS_PENDING
+    receipt.attempts = 0
+    receipt.started_at = None
+    receipt.error_message = ''
+    receipt.save(update_fields=[
+        'status', 'attempts', 'started_at', 'error_message'])
+    messages.info(request, 'Re-scan started. This page updates when it is done.')
+    return redirect('receipts:detail', pk=receipt.pk)

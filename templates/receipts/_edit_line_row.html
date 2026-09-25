@@ -1,0 +1,15 @@
+<tr{% if form.DELETE.value %} hidden{% endif %}>
+  <td>
+    {{ form.label }}
+    {% if form.label.errors %}<span class="field-error">{{ form.label.errors|join:" " }}</span>{% endif %}
+  </td>
+  <td>
+    {{ form.amount }}
+    {% if form.amount.errors %}<span class="field-error">{{ form.amount.errors|join:" " }}</span>{% endif %}
+  </td>
+  <td>
+    <span hidden>{{ form.DELETE }}</span>
+    <button type="button" class="btn-icon edit-remove" title="Remove line"
+      aria-label="Remove line">&times;</button>
+  </td>
+</tr>

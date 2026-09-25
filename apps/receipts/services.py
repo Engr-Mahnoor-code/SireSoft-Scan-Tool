@@ -52,9 +52,6 @@ Use exactly this structure:
         "date": "date on the receipt as printed, else empty string",
         "time": "time on the receipt as printed, else empty string"
     },
-    "details": [
-        {"label": "Invoice No.", "value": "as printed"}
-    ],
     "items": [
         {"name": "item as printed", "quantity": 1, "unit_price": 0.0, "total": 0.0}
     ],
@@ -74,8 +71,7 @@ Use exactly this structure:
 Rules:
 - Every price, quantity and total must be a plain number such as 12.5 — never a string, never a currency symbol.
 - If a value is not printed on the receipt, use 0.0 for numbers and an empty string for text. Do not invent values.
-- List every item you can read, in the order they appear.
-- "details" holds every other labelled field printed on the receipt, in the order printed: bill or invoice number, due date, PO number, phone, email, website, tax or GST numbers, bill from, bill to, vehicle number, cashier, table, and so on. Use the label as printed. Leave out anything already in "establishment", the items or the bill summary."""
+- List every item you can read, in the order they appear."""
 
 
 class OllamaError(Exception):
@@ -449,6 +445,7 @@ def _normalise(data: dict) -> dict:
             'quantity': _to_number(entry.get('quantity'), 1) or 1.0,
             'unit_price': _to_number(entry.get('unit_price') or entry.get('price')),
             'total': _to_number(entry.get('total')),
+            'note': _to_text(entry.get('note')),
         })
 
     raw_insights = data.get('insights')
@@ -472,6 +469,18 @@ def _normalise(data: dict) -> dict:
         if label and value:
             details.append({'label': label, 'value': value})
 
+    raw_lines = summary.get('other_lines')
+    if not isinstance(raw_lines, list):
+        raw_lines = []
+    other_lines = []
+    for entry in raw_lines:
+        if not isinstance(entry, dict):
+            continue
+        label = _to_text(entry.get('label'))
+        if label:
+            other_lines.append(
+                {'label': label, 'amount': _to_number(entry.get('amount'))})
+
     grand_total = _to_number(summary.get('grand_total'))
     if not grand_total:
         # Some models fill only the line items; a sum beats showing zero.
@@ -492,6 +501,7 @@ def _normalise(data: dict) -> dict:
             'discount': _to_number(summary.get('discount')),
             'grand_total': grand_total,
             'payment_method': _to_text(summary.get('payment_method')),
+            'other_lines': other_lines,
         },
         'insights': insights,
     }

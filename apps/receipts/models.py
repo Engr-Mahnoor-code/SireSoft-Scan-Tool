@@ -54,6 +54,9 @@ class Receipt(models.Model):
     # and still needs to know whether to rasterise a PDF.
     content_type = models.CharField(max_length=100, blank=True, default='')
     extracted_data = models.JSONField(null=True, blank=True)
+    # What the scan read, kept apart from `extracted_data` once someone edits
+    # it, so the corrected copy can show each value before and after.
+    scanned_data = models.JSONField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     status = models.CharField(
@@ -103,6 +106,28 @@ class Receipt(models.Model):
         self.date = establishment.get('date') or 'N/A'
         self.total_amount = summary.get('grand_total') or 0.0
         self.extracted_data = data
+
+    def clear_corrections(self):
+        """
+        Drop the hand edits' record and picture, for a fresh scan's data.
+
+        A corrected copy drawn from the old data would contradict the new
+        reading, so it goes with the edit stamp.
+        """
+        if self.corrected_file:
+            try:
+                self.corrected_file.delete(save=False)
+            except Exception:
+                pass
+        self.corrected_file = ''
+        self.edited_at = None
+        self.edited_by = None
+
+    @property
+    def is_rescanning(self):
+        """Queued again although it already has data from an earlier scan."""
+        return (self.status in (self.STATUS_PENDING, self.STATUS_PROCESSING)
+                and bool(self.extracted_data))
 
 
 @receiver(post_delete, sender=Receipt)
