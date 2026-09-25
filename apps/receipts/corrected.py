@@ -1,17 +1,19 @@
 """
-The corrected copy of a receipt: the original scan, annotated with the edits.
+The corrected copy of a receipt: a clean receipt drawn from its edited data.
 
-The uploaded scan is evidence of what the vendor printed and is never altered,
-neither on disk nor in this picture. When someone corrects the extracted data,
-this module draws the original picture as it is, with a CORRECTED banner above
-it and a list of every value changed below it - old value struck through, new
-value beside it. It looks like the receipt because it is the receipt, and it
-cannot pass for a document the vendor issued.
+The uploaded scan is evidence of what the vendor printed and is never altered;
+it stays on the Original scan tab. When someone corrects the extracted data,
+this module draws a fresh receipt carrying every corrected value - name,
+address, date, details, items, totals - in SireSoft's own layout, labelled as
+a corrected copy with who edited it and when. It is never a replica of the
+vendor's document.
 
-Drawing reuses PyMuPDF, already installed to rasterise PDF uploads. The page is
-laid out 560 points wide so text sizes stay constant, then rendered at the
-pixel width of the original scan.
+Drawing reuses PyMuPDF, already installed to rasterise PDF uploads: the receipt
+is laid out as HTML on a tall page, then only the part the content filled is
+rendered to PNG, as wide in pixels as the original scan.
 """
+
+import io
 
 from django.core.files.base import ContentFile
 from django.template.loader import render_to_string
@@ -19,108 +21,29 @@ from django.utils import timezone
 
 from .services import _load_pdf_renderer, render_pdf_preview
 
-LAYOUT_WIDTH = 560          # points
-MEASURE_HEIGHT = 6000       # scratch page for measuring HTML blocks
+PAGE_WIDTH = 560     # points; about an A4 page less its margins
+PAGE_HEIGHT = 8000   # tall enough for any item list; cropped after layout
+DEFAULT_WIDTH_PX = 1400
 MIN_WIDTH_PX, MAX_WIDTH_PX = 600, 2400
 
 
-def _number(value):
-    if isinstance(value, (int, float)):
-        return '%.2f' % value
-    return str(value or '').strip()
-
-
-def _flatten(data):
-    """
-    A receipt's data as ordered (label, value) pairs, for comparing two
-    versions field by field.
-    """
-    data = data or {}
-    pairs = []
-    est = data.get('establishment') or {}
-    for key, label in (('name', 'Name'), ('address', 'Address'),
-                       ('date', 'Date'), ('time', 'Time')):
-        pairs.append((label, str(est.get(key) or '').strip()))
-
-    for detail in data.get('details') or []:
-        if isinstance(detail, dict):
-            pairs.append((str(detail.get('label') or '').strip(),
-                          str(detail.get('value') or '').strip()))
-
-    for index, item in enumerate(data.get('items') or [], start=1):
-        if not isinstance(item, dict):
-            continue
-        quantity = item.get('quantity')
-        if isinstance(quantity, float) and quantity.is_integer():
-            quantity = int(quantity)
-        value = '%s · %s × %s = %s' % (
-            str(item.get('name') or '').strip(), quantity,
-            _number(item.get('unit_price')), _number(item.get('total')))
-        if item.get('note'):
-            value += ' (%s)' % str(item['note']).strip()
-        pairs.append(('Item %d' % index, value))
-
-    bill = data.get('bill_summary') or {}
-    for key, label in (('subtotal', 'Subtotal'), ('tax', 'Tax'),
-                       ('discount', 'Discount'), ('tip', 'Tip')):
-        if bill.get(key):
-            pairs.append((label, _number(bill.get(key))))
-    for line in bill.get('other_lines') or []:
-        if isinstance(line, dict):
-            pairs.append((str(line.get('label') or '').strip(),
-                          _number(line.get('amount'))))
-    pairs.append(('Grand Total', _number(bill.get('grand_total'))))
-    if bill.get('payment_method'):
-        pairs.append(('Payment', str(bill['payment_method']).strip()))
-    return pairs
-
-
-def list_changes(before, after):
-    """Every field whose value differs, in the order the receipt reads."""
-    old = dict(_flatten(before))
-    new = _flatten(after)
-    changes = []
-    for label, value in new:
-        previous = old.pop(label, '')
-        if previous != value:
-            changes.append({'label': label, 'old': previous, 'new': value})
-    # Fields the edit removed altogether.
-    for label, value in old.items():
-        if value:
-            changes.append({'label': label, 'old': value, 'new': ''})
-    return changes
-
-
 def corrected_context(receipt):
+    data = receipt.extracted_data or {}
+    details = [d for d in data.get('details') or [] if isinstance(d, dict)]
     return {
         'receipt': receipt,
-        'changes': list_changes(receipt.scanned_data or receipt.extracted_data,
-                                receipt.extracted_data),
+        'establishment': data.get('establishment') or {},
+        # Two label/value pairs per row, like the header of an invoice.
+        'detail_rows': [details[i:i + 2] for i in range(0, len(details), 2)],
+        'items': data.get('items') or [],
+        'bill': data.get('bill_summary') or {},
         'edited_at': timezone.localtime(receipt.edited_at or timezone.now()),
         'editor': (receipt.edited_by.email or receipt.edited_by.username
                    if receipt.edited_by else 'a user'),
     }
 
 
-def _original_pixmap(receipt, renderer):
-    """The uploaded scan as a pixmap; page 1 for a PDF."""
-    with receipt.file.open('rb') as handle:
-        data = handle.read()
-    if receipt.content_type == 'application/pdf':
-        data = render_pdf_preview(data)
-    try:
-        pixmap = renderer.Pixmap(data)
-    except Exception:
-        # MuPDF has no WebP decoder, and uploads accept WebP.
-        pixmap = renderer.Pixmap(_to_png(data))
-    if pixmap.alpha:
-        pixmap = renderer.Pixmap(pixmap, 0)
-    return pixmap
-
-
 def _to_png(data):
-    import io
-
     from PIL import Image
 
     with Image.open(io.BytesIO(data)) as image:
@@ -129,43 +52,38 @@ def _to_png(data):
         return out.getvalue()
 
 
-def _html_height(renderer, html):
-    doc = renderer.open()
+def _original_width(receipt, renderer):
+    """Pixel width of the uploaded scan, so both tabs show alike."""
     try:
-        page = doc.new_page(width=LAYOUT_WIDTH, height=MEASURE_HEIGHT)
-        spare, _ = page.insert_htmlbox(
-            renderer.Rect(0, 0, LAYOUT_WIDTH, MEASURE_HEIGHT), html)
-        return MEASURE_HEIGHT - spare if spare >= 0 else MEASURE_HEIGHT
-    finally:
-        doc.close()
+        with receipt.file.open('rb') as handle:
+            data = handle.read()
+        if receipt.content_type == 'application/pdf':
+            data = render_pdf_preview(data)
+        try:
+            width = renderer.Pixmap(data).width
+        except Exception:
+            # MuPDF has no WebP decoder, and uploads accept WebP.
+            width = renderer.Pixmap(_to_png(data)).width
+    except Exception:
+        return DEFAULT_WIDTH_PX
+    return min(max(width, MIN_WIDTH_PX), MAX_WIDTH_PX)
 
 
 def render_corrected_png(receipt) -> bytes:
     renderer = _load_pdf_renderer()
-    original = _original_pixmap(receipt, renderer)
-    context = corrected_context(receipt)
-    banner = render_to_string('receipts/corrected_banner.html', context)
-    panel = render_to_string('receipts/corrected_changes.html', context)
-
-    banner_h = _html_height(renderer, banner)
-    image_h = LAYOUT_WIDTH * original.height / original.width
-    panel_h = _html_height(renderer, panel)
+    html = render_to_string('receipts/corrected_receipt.html',
+                            corrected_context(receipt))
 
     doc = renderer.open()
     try:
-        page = doc.new_page(width=LAYOUT_WIDTH,
-                            height=banner_h + image_h + panel_h)
-        page.draw_rect(page.rect, color=None, fill=(1, 1, 1))
-        page.insert_htmlbox(renderer.Rect(0, 0, LAYOUT_WIDTH, banner_h), banner)
-        page.insert_image(
-            renderer.Rect(0, banner_h, LAYOUT_WIDTH, banner_h + image_h),
-            pixmap=original)
-        page.insert_htmlbox(
-            renderer.Rect(0, banner_h + image_h, LAYOUT_WIDTH,
-                          banner_h + image_h + panel_h), panel)
-        width_px = min(max(original.width, MIN_WIDTH_PX), MAX_WIDTH_PX)
-        zoom = width_px / LAYOUT_WIDTH
-        return page.get_pixmap(matrix=renderer.Matrix(zoom, zoom)).tobytes('png')
+        page = doc.new_page(width=PAGE_WIDTH, height=PAGE_HEIGHT)
+        box = renderer.Rect(0, 0, PAGE_WIDTH, PAGE_HEIGHT)
+        spare, _ = page.insert_htmlbox(box, html)
+        used = max(PAGE_HEIGHT - spare, 100) if spare >= 0 else PAGE_HEIGHT
+        clip = renderer.Rect(0, 0, PAGE_WIDTH, used)
+        zoom = _original_width(receipt, renderer) / PAGE_WIDTH
+        return page.get_pixmap(matrix=renderer.Matrix(zoom, zoom),
+                               clip=clip).tobytes('png')
     finally:
         doc.close()
 

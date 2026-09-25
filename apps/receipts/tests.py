@@ -438,9 +438,8 @@ class CorrectedCopyAndDeleteTests(TestCase):
         self.save_edit(self.owner, 'Gulistan-e-Jauhar')
         self.assertTrue(self.receipt.corrected_file)
         png = pymupdf.Pixmap(self.receipt.corrected_file.read())
-        # As wide as the scan, and taller: banner above, corrections below.
+        # As wide as the scan, so both tabs show alike.
         self.assertEqual(png.width, 800)
-        self.assertGreater(png.height, 1000)
         # The upload itself is untouched, and the scan's reading is kept.
         self.receipt.file.open('rb')
         self.assertEqual(self.receipt.file.read(), self.scan_bytes)
@@ -448,31 +447,16 @@ class CorrectedCopyAndDeleteTests(TestCase):
         self.assertEqual(
             self.receipt.scanned_data['establishment']['address'], 'Old Street')
 
-    def test_corrections_list_old_and_new_values(self):
+    def test_corrected_copy_carries_every_edited_value(self):
         from django.template.loader import render_to_string
         from .corrected import corrected_context
         self.save_edit(self.owner, 'Gulistan-e-Jauhar')
-        context = corrected_context(self.receipt)
-        # The edit also added an invoice number, an item note and a line.
-        self.assertEqual(
-            [(c['label'], c['old'], c['new']) for c in context['changes']],
-            [('Address', 'Old Street', 'Gulistan-e-Jauhar'),
-             ('Invoice No.', '', 'BIL-00160'),
-             ('Item 1', 'Phone · 1 × 10.00 = 10.00',
-              'Phone · 1 × 10.00 = 10.00 (HSN 463182)'),
-             ('SGST@2.5', '', '0.00')])
-        banner = render_to_string('receipts/corrected_banner.html', context)
-        self.assertIn('owner@example.com', banner)
-        self.assertIn('CORRECTED', banner)
-
-    def test_a_later_edit_still_compares_with_the_scan(self):
-        from .corrected import corrected_context
-        self.save_edit(self.owner, 'First')
-        self.save_edit(self.owner, 'Second')
-        address = [c for c in corrected_context(self.receipt)['changes']
-                   if c['label'] == 'Address'][0]
-        self.assertEqual((address['old'], address['new']),
-                         ('Old Street', 'Second'))
+        html = render_to_string('receipts/corrected_receipt.html',
+                                corrected_context(self.receipt))
+        for text in ('Gulistan-e-Jauhar', 'BIL-00160', 'HSN 463182',
+                     'SGST@2.5', 'CORRECTED COPY', 'owner@example.com'):
+            self.assertIn(text, html)
+        self.assertNotIn('Old Street', html)
 
     def test_webp_scan_gets_a_corrected_copy(self):
         import io
