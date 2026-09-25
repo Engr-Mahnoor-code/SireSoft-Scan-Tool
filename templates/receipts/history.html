@@ -3,7 +3,9 @@ ReceiptIQ{% endblock %} {% block content %}
 <div class="page-header page-header-row">
   <div>
     <h1 class="page-title">Receipt History</h1>
-    <p class="page-subtitle">All receipts scanned by your account.</p>
+    <p class="page-subtitle">
+      {% if user.is_staff %}All receipts scanned by every user.{% else %}All receipts scanned by your account.{% endif %}
+    </p>
   </div>
   <a href="{% url 'receipts:index' %}" class="btn">+ New Scan</a>
 </div>
@@ -16,6 +18,7 @@ ReceiptIQ{% endblock %} {% block content %}
         <tr>
           <th>#</th>
           <th>Vendor</th>
+          {% if user.is_staff %}<th>Uploaded By</th>{% endif %}
           <th>Date</th>
           <th>Total</th>
           <th>Scanned On</th>
@@ -27,6 +30,7 @@ ReceiptIQ{% endblock %} {% block content %}
         <tr>
           <td class="td-id">{{ forloop.counter }}</td>
           <td class="td-vendor">{{ receipt.vendor_name|default:"Unknown" }}</td>
+          {% if user.is_staff %}<td>{{ receipt.user.email|default:receipt.user.username }}</td>{% endif %}
           <td>{{ receipt.date|default:"—" }}</td>
           <td class="td-amount">${{ receipt.total_amount|floatformat:2 }}</td>
           <td class="td-date">{{ receipt.created_at|date:"M d, Y H:i" }}</td>

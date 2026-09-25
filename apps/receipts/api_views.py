@@ -160,12 +160,14 @@ class ReceiptStatusView(APIView):
 class ReceiptListView(APIView):
     """
     GET /api/receipts/
-    Returns the authenticated user's successfully processed receipts.
+    Returns the successfully processed receipts the user may see: their own,
+    or everyone's for staff.
     """
 
     def get(self, request):
-        receipts = Receipt.objects.filter(
-            user=request.user, status=Receipt.STATUS_SUCCESS)
+        receipts = (Receipt.objects.visible_to(request.user)
+                    .filter(status=Receipt.STATUS_SUCCESS)
+                    .select_related('user'))
         serializer = ReceiptSerializer(
             receipts, many=True, context={'request': request})
         return Response(serializer.data)
@@ -174,10 +176,11 @@ class ReceiptListView(APIView):
 class ReceiptDetailView(APIView):
     """
     GET /api/receipts/<pk>/
-    Returns a single receipt. Only the owner can access it.
+    Returns a single receipt, to its owner or to staff.
     """
 
     def get(self, request, pk):
-        receipt = get_object_or_404(Receipt, pk=pk, user=request.user)
+        receipt = get_object_or_404(
+            Receipt.objects.visible_to(request.user), pk=pk)
         serializer = ReceiptSerializer(receipt, context={'request': request})
         return Response(serializer.data)

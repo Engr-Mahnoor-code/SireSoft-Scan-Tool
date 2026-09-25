@@ -59,6 +59,16 @@ class RegisterForm(UserCreationForm):
             elif field_name == 'password2':
                 field.widget.attrs['placeholder'] = 'Confirm Password'
 
+    def clean_email(self):
+        # Sign-in by email only works while each address names one account,
+        # so a second sign-up must not be able to take someone's address
+        # (the admin's included) and lock them out of email login.
+        email = self.cleaned_data['email'].strip()
+        if User.objects.filter(email__iexact=email).exists():
+            raise forms.ValidationError(
+                'An account with this email already exists.')
+        return email
+
 
 class ResetPasswordForm(PasswordResetForm):
     email = forms.EmailField(

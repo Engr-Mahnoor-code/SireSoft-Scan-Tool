@@ -11,7 +11,7 @@ class LoginViewTests(TestCase):
 
     def test_page_shows_receiptiq_banner(self):
         response = self.client.get(self.url)
-        self.assertContains(response, 'SireSoft ReceiptIQ Tool')
+        self.assertContains(response, 'SireSoft Scan Tool')
         self.assertContains(response, 'Leader in Innovation')
         self.assertNotContains(response, 'Project Management')
 

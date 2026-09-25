@@ -6,6 +6,18 @@ from django.dispatch import receiver
 from django.contrib.auth.models import User
 
 
+class ReceiptQuerySet(models.QuerySet):
+    def visible_to(self, user):
+        """
+        The receipts `user` may see: every receipt for staff, otherwise only
+        their own. Every page and endpoint that looks up receipts goes through
+        this, so the rule lives in one place.
+        """
+        if user.is_staff:
+            return self.all()
+        return self.filter(user=user)
+
+
 class Receipt(models.Model):
     """
     One uploaded receipt.
@@ -50,6 +62,8 @@ class Receipt(models.Model):
     # can be told apart from one that is genuinely still running.
     started_at = models.DateTimeField(null=True, blank=True)
     processed_at = models.DateTimeField(null=True, blank=True)
+
+    objects = ReceiptQuerySet.as_manager()
 
     class Meta:
         ordering = ['-created_at']
