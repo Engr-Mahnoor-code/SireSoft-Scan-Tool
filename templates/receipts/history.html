@@ -52,6 +52,8 @@ ReceiptIQ{% endblock %} {% block content %}
             >
             <a href="{% url 'receipts:edit' receipt.pk %}"
               class="btn btn-sm btn-outline">Edit</a>
+            <a href="{% url 'receipts:delete' receipt.pk %}"
+              class="btn btn-sm btn-danger-outline">Delete</a>
           </td>
         </tr>
         {% endfor %}

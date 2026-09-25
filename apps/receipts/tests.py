@@ -499,6 +499,12 @@ class CorrectedCopyAndDeleteTests(TestCase):
         history = views.history(self.request(self.owner))
         self.assertContains(history, corrected)
 
+    def test_delete_sits_in_history_not_on_the_receipt_page(self):
+        url = reverse('receipts:delete', args=[self.receipt.pk])
+        self.assertContains(views.history(self.request(self.owner)), url)
+        detail = views.detail(self.request(self.owner), pk=self.receipt.pk)
+        self.assertNotContains(detail, url)
+
     def test_delete_asks_first(self):
         response = views.delete(self.request(self.owner), pk=self.receipt.pk)
         self.assertContains(response, 'This cannot be undone.')

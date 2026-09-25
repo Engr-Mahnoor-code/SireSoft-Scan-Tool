@@ -2,8 +2,8 @@
 {% block title %}Delete {{ receipt.vendor_name|default:"Receipt" }} — ReceiptIQ{% endblock %}
 {% block content %}
 <div class="page-header">
-  <a href="{% url 'receipts:detail' receipt.pk %}" class="back-link"
-    >&larr; Back to Receipt</a
+  <a href="{% url 'receipts:history' %}" class="back-link"
+    >&larr; Back to History</a
   >
   <h1 class="page-title">Delete Receipt</h1>
 </div>
@@ -32,7 +32,7 @@
       </p>
       <form method="post" class="edit-actions delete-actions">
         {% csrf_token %}
-        <a href="{% url 'receipts:detail' receipt.pk %}" class="btn btn-outline">Cancel</a>
+        <a href="{% url 'receipts:history' %}" class="btn btn-outline">Cancel</a>
         <button type="submit" class="btn btn-danger">Delete Receipt</button>
       </form>
     </div>

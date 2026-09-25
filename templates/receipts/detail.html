@@ -27,9 +27,6 @@
     {% endif %}
   </div>
   <div class="header-actions">
-  <a href="{% url 'receipts:delete' receipt.pk %}" class="btn btn-danger-outline">
-    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg> Delete
-  </a>
   {% if can_edit %}
   <form method="post" action="{% url 'receipts:rescan' receipt.pk %}"
     onsubmit="return confirm('Read the original picture again? The fresh reading replaces this data{% if receipt.edited_at %} and your edits{% endif %}.');">
