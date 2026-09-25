@@ -1189,6 +1189,19 @@ body.page-login {
     text-align: center;
 }
 
+.edit-hint {
+    display: block;
+    margin: -0.5rem 0 0.75rem 0;
+}
+
+.edit-details td:first-child .form-input {
+    min-width: 10rem;
+}
+
+.edit-details td:nth-child(2) {
+    width: 60%;
+}
+
 .edit-add {
     margin-top: 0.85rem;
 }

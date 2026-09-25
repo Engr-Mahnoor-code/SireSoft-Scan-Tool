@@ -52,6 +52,9 @@ Use exactly this structure:
         "date": "date on the receipt as printed, else empty string",
         "time": "time on the receipt as printed, else empty string"
     },
+    "details": [
+        {"label": "Invoice No.", "value": "as printed"}
+    ],
     "items": [
         {"name": "item as printed", "quantity": 1, "unit_price": 0.0, "total": 0.0}
     ],
@@ -71,7 +74,8 @@ Use exactly this structure:
 Rules:
 - Every price, quantity and total must be a plain number such as 12.5 — never a string, never a currency symbol.
 - If a value is not printed on the receipt, use 0.0 for numbers and an empty string for text. Do not invent values.
-- List every item you can read, in the order they appear."""
+- List every item you can read, in the order they appear.
+- "details" holds every other labelled field printed on the receipt, in the order printed: bill or invoice number, due date, PO number, phone, email, website, tax or GST numbers, bill from, bill to, vehicle number, cashier, table, and so on. Use the label as printed. Leave out anything already in "establishment", the items or the bill summary."""
 
 
 class OllamaError(Exception):
@@ -454,6 +458,20 @@ def _normalise(data: dict) -> dict:
         raw_insights = []
     insights = [_to_text(i) for i in raw_insights if _to_text(i)]
 
+    raw_details = data.get('details')
+    if isinstance(raw_details, dict):
+        raw_details = [{'label': k, 'value': v} for k, v in raw_details.items()]
+    elif not isinstance(raw_details, list):
+        raw_details = []
+    details = []
+    for entry in raw_details:
+        if not isinstance(entry, dict):
+            continue
+        label = _to_text(entry.get('label'))
+        value = _to_text(entry.get('value'))
+        if label and value:
+            details.append({'label': label, 'value': value})
+
     grand_total = _to_number(summary.get('grand_total'))
     if not grand_total:
         # Some models fill only the line items; a sum beats showing zero.
@@ -466,6 +484,7 @@ def _normalise(data: dict) -> dict:
             'date': _to_text(establishment.get('date')),
             'time': _to_text(establishment.get('time')),
         },
+        'details': details,
         'items': items,
         'bill_summary': {
             'subtotal': _to_number(summary.get('subtotal')),

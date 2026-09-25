@@ -1,0 +1,15 @@
+<tr{% if form.DELETE.value %} hidden{% endif %}>
+  <td>
+    {{ form.label }}
+    {% if form.label.errors %}<span class="field-error">{{ form.label.errors|join:" " }}</span>{% endif %}
+  </td>
+  <td>
+    {{ form.value }}
+    {% if form.value.errors %}<span class="field-error">{{ form.value.errors|join:" " }}</span>{% endif %}
+  </td>
+  <td>
+    <span hidden>{{ form.DELETE }}</span>
+    <button type="button" class="btn-icon edit-remove" title="Remove detail"
+      aria-label="Remove detail">&times;</button>
+  </td>
+</tr>

@@ -226,6 +226,8 @@ class ReceiptEditTests(TestCase):
                 'bill_summary': {'subtotal': 23.06, 'grand_total': 26.06,
                                  'payment_method': 'Apple pay'},
                 'insights': ['Paid with Apple pay.'],
+                'details': [{'label': 'Invoice No.', 'value': 'INV-1'},
+                            {'label': 'Table', 'value': '4'}],
                 'extra_key': 'kept',
             })
         self.url = reverse('receipts:edit', args=[self.receipt.pk])
@@ -234,6 +236,12 @@ class ReceiptEditTests(TestCase):
         data = {
             'est-name': 'Ocean Reach Pub', 'est-date': '27 May, 2020',
             'est-time': '6:00 PM', 'est-address': '1633 Hampton Meadows',
+            'details-TOTAL_FORMS': '3', 'details-INITIAL_FORMS': '2',
+            'details-MIN_NUM_FORMS': '0', 'details-MAX_NUM_FORMS': '100',
+            'details-0-label': 'Invoice No.', 'details-0-value': 'INV-9',
+            'details-1-label': 'Table', 'details-1-value': '4',
+            'details-1-DELETE': 'on',
+            'details-2-label': 'GSTIN', 'details-2-value': ' 33AAQ ',
             'items-TOTAL_FORMS': '3', 'items-INITIAL_FORMS': '2',
             'items-MIN_NUM_FORMS': '0', 'items-MAX_NUM_FORMS': '200',
             'items-0-name': 'Oatmeal Stout', 'items-0-quantity': '2',
@@ -270,6 +278,7 @@ class ReceiptEditTests(TestCase):
         response = self.page(self.owner)
         self.assertContains(response, 'value="Orders"')
         self.assertContains(response, 'value="Budweiser"')
+        self.assertContains(response, 'value="INV-1"')
         self.assertContains(response, 'Paid with Apple pay.')
 
     def test_owner_saves_corrections(self):
@@ -291,6 +300,10 @@ class ReceiptEditTests(TestCase):
         self.assertEqual(data['insights'],
                          ['Paid with Apple Pay.', 'Delivered.'])
         self.assertEqual(data['extra_key'], 'kept')
+        self.assertEqual(data['details'], [
+            {'label': 'Invoice No.', 'value': 'INV-9'},
+            {'label': 'GSTIN', 'value': '33AAQ'},
+        ])
         # History reads these columns, so they follow the edit.
         self.assertEqual(self.receipt.vendor_name, 'Ocean Reach Pub')
         self.assertEqual(self.receipt.total_amount, 26.06)
@@ -385,6 +398,9 @@ class CorrectedCopyAndDeleteTests(TestCase):
         data = {
             'est-name': 'Zetran', 'est-date': '', 'est-time': '',
             'est-address': address,
+            'details-TOTAL_FORMS': '1', 'details-INITIAL_FORMS': '0',
+            'details-MIN_NUM_FORMS': '0', 'details-MAX_NUM_FORMS': '100',
+            'details-0-label': 'Invoice No.', 'details-0-value': 'BIL-00160',
             'items-TOTAL_FORMS': '1', 'items-INITIAL_FORMS': '1',
             'items-MIN_NUM_FORMS': '0', 'items-MAX_NUM_FORMS': '200',
             'items-0-name': 'Phone', 'items-0-quantity': '1',
@@ -473,3 +489,30 @@ class CorrectedCopyAndDeleteTests(TestCase):
         with self.assertRaises(Http404):
             views.delete(self.request(self.other, 'post'), pk=self.receipt.pk)
         self.assertTrue(Receipt.objects.filter(pk=self.receipt.pk).exists())
+
+
+class ExtractionDetailsTests(TestCase):
+    """The scan's "details" list is cleaned like the rest of its reply."""
+
+    def test_details_keep_labelled_pairs_only(self):
+        from .services import _normalise
+        data = _normalise({'details': [
+            {'label': 'Invoice No.', 'value': 'INV-1'},
+            {'label': 'Empty', 'value': ''},
+            'not a pair',
+            {'label': 'PO', 'value': 147},
+        ]})
+        self.assertEqual(data['details'], [
+            {'label': 'Invoice No.', 'value': 'INV-1'},
+            {'label': 'PO', 'value': '147'},
+        ])
+
+    def test_details_given_as_a_mapping_are_accepted(self):
+        from .services import _normalise
+        data = _normalise({'details': {'Due Date': '11-07-2020'}})
+        self.assertEqual(data['details'],
+                         [{'label': 'Due Date', 'value': '11-07-2020'}])
+
+    def test_missing_details_become_an_empty_list(self):
+        from .services import _normalise
+        self.assertEqual(_normalise({})['details'], [])

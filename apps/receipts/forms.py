@@ -31,6 +31,16 @@ ItemFormSet = forms.formset_factory(
     ItemForm, extra=0, can_delete=True, max_num=200, validate_max=True)
 
 
+class DetailForm(forms.Form):
+    label = forms.CharField(max_length=100,
+                            widget=_input(placeholder='Label, e.g. Invoice No.'))
+    value = forms.CharField(max_length=500, widget=_input(placeholder='Value'))
+
+
+DetailFormSet = forms.formset_factory(
+    DetailForm, extra=0, can_delete=True, max_num=100, validate_max=True)
+
+
 class BillSummaryForm(forms.Form):
     subtotal = forms.FloatField(required=False, widget=_number())
     tax = forms.FloatField(required=False, widget=_number())
@@ -66,6 +76,8 @@ class ReceiptEditForms:
         self.establishment = EstablishmentForm(
             data, prefix='est', initial=stored.get('establishment') or {})
         self.items = ItemFormSet(data, prefix='items', initial=items)
+        details = [d for d in stored.get('details') or [] if isinstance(d, dict)]
+        self.details = DetailFormSet(data, prefix='details', initial=details)
         self.bill = BillSummaryForm(
             data, prefix='bill', initial=stored.get('bill_summary') or {})
         self.notes = InsightsForm(data, prefix='notes', initial={
@@ -73,8 +85,8 @@ class ReceiptEditForms:
 
     def is_valid(self):
         # Every form is validated so each one carries its own errors.
-        results = [f.is_valid() for f in
-                   (self.establishment, self.items, self.bill, self.notes)]
+        results = [f.is_valid() for f in (self.establishment, self.details,
+                                          self.items, self.bill, self.notes)]
         return all(results)
 
     def cleaned_data(self):
@@ -96,6 +108,15 @@ class ReceiptEditForms:
                 'total': row.get('total') or 0.0,
             })
 
+        details = []
+        for form in self.details.forms:
+            row = form.cleaned_data
+            if not row or row.get('DELETE'):
+                continue
+            label, value = row.get('label', '').strip(), row.get('value', '').strip()
+            if label and value:
+                details.append({'label': label, 'value': value})
+
         bill = dict(stored.get('bill_summary') or {})
         for key, value in self.bill.cleaned_data.items():
             if key == 'payment_method':
@@ -109,6 +130,7 @@ class ReceiptEditForms:
 
         stored.update({
             'establishment': establishment,
+            'details': details,
             'items': items,
             'bill_summary': bill,
             'insights': insights,

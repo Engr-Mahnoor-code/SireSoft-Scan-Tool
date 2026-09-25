@@ -31,6 +31,41 @@
     {% endwith %}
   </div>
 
+  <!-- Other details -->
+  <div class="card result-card" id="details">
+    <h2 class="card-title">Other Details</h2>
+    {{ forms.details.management_form }}
+    <p class="field-hint edit-hint">
+      Invoice number, due date, phone, tax numbers and anything else printed.
+    </p>
+    <div class="table-wrapper">
+      <table class="items-table edit-items edit-details">
+        <thead>
+          <tr>
+            <th>Label</th>
+            <th>Value</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="detail-rows">
+          {% for form in forms.details %}
+          {% include "receipts/_edit_detail_row.html" %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <button type="button" class="btn btn-outline btn-sm edit-add"
+      data-add-row="detail-rows" data-prefix="details"
+      data-template="detail-template">
+      + Add detail
+    </button>
+    <template id="detail-template">
+      {% with form=forms.details.empty_form %}
+      {% include "receipts/_edit_detail_row.html" %}
+      {% endwith %}
+    </template>
+  </div>
+
   <!-- Items -->
   <div class="card result-card" id="items">
     <h2 class="card-title">Items</h2>
@@ -56,7 +91,8 @@
         </tbody>
       </table>
     </div>
-    <button type="button" class="btn btn-outline btn-sm edit-add" id="add-item">
+    <button type="button" class="btn btn-outline btn-sm edit-add"
+      data-add-row="item-rows" data-prefix="items" data-template="item-template">
       + Add item
     </button>
     <template id="item-template">
@@ -103,16 +139,19 @@
 {% block extra_js %}
 <script>
   (function () {
-    var rows = document.getElementById('item-rows');
-    var total = document.getElementById('id_items-TOTAL_FORMS');
-    var template = document.getElementById('item-template');
-
-    document.getElementById('add-item').addEventListener('click', function () {
-      var index = parseInt(total.value, 10);
-      var html = template.innerHTML.replace(/__prefix__/g, index);
-      rows.insertAdjacentHTML('beforeend', html);
-      total.value = index + 1;
-      rows.lastElementChild.querySelector('input').focus();
+    // "+ Add" buttons append a blank formset row and bump its TOTAL_FORMS.
+    document.querySelectorAll('[data-add-row]').forEach(function (button) {
+      var rows = document.getElementById(button.dataset.addRow);
+      var total = document.getElementById(
+        'id_' + button.dataset.prefix + '-TOTAL_FORMS');
+      var template = document.getElementById(button.dataset.template);
+      button.addEventListener('click', function () {
+        var index = parseInt(total.value, 10);
+        rows.insertAdjacentHTML(
+          'beforeend', template.innerHTML.replace(/__prefix__/g, index));
+        total.value = index + 1;
+        rows.lastElementChild.querySelector('input').focus();
+      });
     });
 
     // A card's Edit link on the detail page lands on its section (or on one
@@ -129,7 +168,7 @@
 
     // Removing a row ticks its DELETE box and hides it, so the formset
     // numbering stays intact.
-    rows.addEventListener('click', function (event) {
+    document.querySelector('.edit-form').addEventListener('click', function (event) {
       var button = event.target.closest('.edit-remove');
       if (!button) return;
       var row = button.closest('tr');
