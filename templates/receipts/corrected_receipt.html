@@ -1,0 +1,56 @@
+{% comment %}
+  Laid out by PyMuPDF's HTML engine, not a browser: tables and plain block
+  styles only, no flex or grid. Rendered to PNG by apps/receipts/corrected.py.
+{% endcomment %}
+<div style="font-family: sans-serif; color: #1f2937; background: #ffffff; padding: 22px 24px 18px 24px; font-size: 10px;">
+
+  <p style="margin: 0; padding: 5px 8px; background: #fff4d6; color: #8a5a00; font-size: 8.5px; text-align: center;">
+    CORRECTED COPY &mdash; edited by {{ receipt.edited_by.email|default:receipt.edited_by.username|default:"a user" }}
+    on {{ edited_at|date:"d M Y, H:i" }}
+  </p>
+
+  <p style="margin: 16px 0 2px 0; font-size: 16px; font-weight: bold; color: #041b67; text-align: center;">
+    {{ establishment.name|default:"Unknown Vendor" }}
+  </p>
+  {% if establishment.address %}
+  <p style="margin: 0; text-align: center; color: #4b5563;">{{ establishment.address }}</p>
+  {% endif %}
+  <p style="margin: 4px 0 0 0; text-align: center; color: #4b5563;">
+    {{ establishment.date|default:"" }}{% if establishment.date and establishment.time %} &middot; {% endif %}{{ establishment.time|default:"" }}
+  </p>
+
+  <table style="width: 100%; border-collapse: collapse; margin-top: 16px;">
+    <tr>
+      <td style="width: 46%; border-bottom: 1px solid #041b67; padding: 4px 0; font-weight: bold; color: #041b67;">Item</td>
+      <td style="width: 10%; border-bottom: 1px solid #041b67; padding: 4px 0; font-weight: bold; color: #041b67; text-align: right;">Qty</td>
+      <td style="width: 22%; border-bottom: 1px solid #041b67; padding: 4px 0; font-weight: bold; color: #041b67; text-align: right;">Price</td>
+      <td style="width: 22%; border-bottom: 1px solid #041b67; padding: 4px 0; font-weight: bold; color: #041b67; text-align: right;">Total</td>
+    </tr>
+    {% for item in items %}
+    <tr>
+      <td style="border-bottom: 1px solid #e5e7eb; padding: 5px 4px 5px 0;">{{ item.name }}</td>
+      <td style="border-bottom: 1px solid #e5e7eb; padding: 5px 0; text-align: right;">{{ item.quantity|floatformat:"-2" }}</td>
+      <td style="border-bottom: 1px solid #e5e7eb; padding: 5px 0; text-align: right;">{{ item.unit_price|floatformat:2 }}</td>
+      <td style="border-bottom: 1px solid #e5e7eb; padding: 5px 0; text-align: right;">{{ item.total|floatformat:2 }}</td>
+    </tr>
+    {% empty %}
+    <tr><td style="padding: 6px 0; color: #6b7280;">No items</td><td></td><td></td><td></td></tr>
+    {% endfor %}
+  </table>
+
+  <table style="width: 100%; border-collapse: collapse; margin-top: 12px;">
+    {% if bill.subtotal %}<tr><td style="padding: 2px 0;">Subtotal</td><td style="padding: 2px 0; text-align: right;">{{ bill.subtotal|floatformat:2 }}</td></tr>{% endif %}
+    {% if bill.tax %}<tr><td style="padding: 2px 0;">Tax</td><td style="padding: 2px 0; text-align: right;">{{ bill.tax|floatformat:2 }}</td></tr>{% endif %}
+    {% if bill.discount %}<tr><td style="padding: 2px 0;">Discount</td><td style="padding: 2px 0; text-align: right;">{{ bill.discount|floatformat:2 }}</td></tr>{% endif %}
+    {% if bill.tip %}<tr><td style="padding: 2px 0;">Tip</td><td style="padding: 2px 0; text-align: right;">{{ bill.tip|floatformat:2 }}</td></tr>{% endif %}
+    <tr>
+      <td style="border-top: 1px solid #041b67; padding: 6px 0 2px 0; font-size: 12px; font-weight: bold; color: #041b67;">Grand Total</td>
+      <td style="border-top: 1px solid #041b67; padding: 6px 0 2px 0; font-size: 12px; font-weight: bold; color: #041b67; text-align: right;">{{ bill.grand_total|floatformat:2 }}</td>
+    </tr>
+    {% if bill.payment_method %}<tr><td style="padding: 2px 0; color: #4b5563;">Payment</td><td style="padding: 2px 0; text-align: right; color: #4b5563;">{{ bill.payment_method }}</td></tr>{% endif %}
+  </table>
+
+  <p style="margin: 18px 0 0 0; font-size: 8px; color: #9ca3af; text-align: center;">
+    SireSoft Scan Tool &middot; Receipt #{{ receipt.pk }} &middot; the original scan is kept unchanged
+  </p>
+</div>

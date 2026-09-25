@@ -1,0 +1,66 @@
+{% comment %}
+  The Receipt Image card. With a corrected copy it gets two tabs, the
+  corrected picture first; the original scan is always one click away and is
+  never altered. `?v=` changes on every edit so the browser drops the old copy.
+{% endcomment %}
+{% if receipt.file or receipt.corrected_file %}
+<div class="results-panel results-panel-full receipt-image-panel">
+  <div class="card result-card">
+    <h2 class="card-title">Receipt Image</h2>
+
+    {% if receipt.corrected_file %}
+    <div class="image-tabs" role="tablist">
+      <button type="button" class="image-tab is-active" role="tab"
+        aria-selected="true" data-tab="corrected">Corrected</button>
+      <button type="button" class="image-tab" role="tab"
+        aria-selected="false" data-tab="original">Original scan</button>
+    </div>
+
+    <div class="image-pane" data-pane="corrected">
+      {% url 'receipts:corrected' receipt.pk as corrected_url %}
+      <a href="{{ corrected_url }}?v={{ receipt.edited_at|date:'U' }}" target="_blank"
+        rel="noopener" class="receipt-image-link">
+        <img src="{{ corrected_url }}?v={{ receipt.edited_at|date:'U' }}"
+          alt="Corrected copy of the receipt" class="receipt-image" />
+      </a>
+      <p class="receipt-image-name text-muted">
+        Drawn from the edited data. The original scan is unchanged.
+      </p>
+    </div>
+    {% endif %}
+
+    {% if receipt.file %}
+    <div class="image-pane" data-pane="original"{% if receipt.corrected_file %} hidden{% endif %}>
+      {% url 'receipts:file' receipt.pk as file_url %}
+      {# PDFs come back rendered as PNG, so every receipt shows the same way. #}
+      <a href="{{ file_url }}" target="_blank" rel="noopener" class="receipt-image-link">
+        <img src="{% url 'receipts:preview' receipt.pk %}"
+          alt="Uploaded receipt {{ receipt.filename }}" class="receipt-image"
+          loading="lazy" />
+      </a>
+      <p class="receipt-image-name text-muted">{{ receipt.filename }}</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% if receipt.corrected_file %}
+<script>
+  (function () {
+    var tabs = document.querySelectorAll('.image-tab');
+    tabs.forEach(function (tab) {
+      tab.addEventListener('click', function () {
+        tabs.forEach(function (other) {
+          var active = other === tab;
+          other.classList.toggle('is-active', active);
+          other.setAttribute('aria-selected', active);
+        });
+        document.querySelectorAll('.image-pane').forEach(function (pane) {
+          pane.hidden = pane.dataset.pane !== tab.dataset.tab;
+        });
+      });
+    });
+  })();
+</script>
+{% endif %}
+{% endif %}

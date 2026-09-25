@@ -1,13 +1,18 @@
+import logging
+
 from django.http import FileResponse, Http404, HttpResponse
 from django.contrib import messages
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.clickjacking import xframe_options_sameorigin
+from .corrected import save_corrected_copy
 from .forms import ReceiptEditForms
 from .models import Receipt
 from .services import render_pdf_preview
 from .api_views import ALLOWED_MIME_TYPES, MAX_FILES_PER_UPLOAD, MAX_FILE_SIZE
+
+logger = logging.getLogger(__name__)
 
 
 @login_required
@@ -59,8 +64,18 @@ def edit(request, pk):
             receipt.set_extracted_data(forms.cleaned_data())
             receipt.edited_at = timezone.now()
             receipt.edited_by = request.user
+            try:
+                save_corrected_copy(receipt)
+            except Exception:
+                # The corrections matter more than their picture: keep them,
+                # and say the picture is out of date.
+                logger.exception('Corrected copy of receipt %s failed', pk)
+                messages.warning(
+                    request, 'Receipt updated, but its corrected picture '
+                             'could not be drawn.')
+            else:
+                messages.success(request, 'Receipt updated.')
             receipt.save()
-            messages.success(request, 'Receipt updated.')
             return redirect('receipts:detail', pk=receipt.pk)
     else:
         forms = ReceiptEditForms(receipt)
@@ -80,21 +95,36 @@ def receipt_file(request, pk):
     """
     receipt = get_object_or_404(
         Receipt.objects.visible_to(request.user), pk=pk)
-    if not receipt.file:
-        raise Http404('This receipt has no file.')
-    try:
-        handle = receipt.file.open('rb')
-    except (FileNotFoundError, OSError):
-        raise Http404('The receipt file is missing.')
-
     # The stored type was checked against the upload allowlist; anything else
     # is downloaded rather than rendered, so the browser never sniffs it.
-    content_type = receipt.content_type
+    return _serve(receipt.file, receipt.content_type, receipt.filename)
+
+
+@login_required
+def receipt_corrected(request, pk):
+    """The corrected copy drawn after an edit, under the same access check."""
+    receipt = get_object_or_404(
+        Receipt.objects.visible_to(request.user), pk=pk)
+    response = _serve(receipt.corrected_file, 'image/png',
+                      'receipt-%d-corrected.png' % receipt.pk)
+    # Redrawn on every edit under the same URL; the page adds a version to
+    # the URL, but never let a stale copy be kept for long.
+    response['Cache-Control'] = 'private, no-cache'
+    return response
+
+
+def _serve(field, content_type, filename):
+    if not field:
+        raise Http404('This receipt has no such file.')
+    try:
+        handle = field.open('rb')
+    except (FileNotFoundError, OSError):
+        raise Http404('The receipt file is missing.')
     inline = content_type in ALLOWED_MIME_TYPES
     response = FileResponse(
         handle,
         as_attachment=not inline,
-        filename=receipt.filename,
+        filename=filename,
         content_type=content_type if inline else 'application/octet-stream',
     )
     response['X-Content-Type-Options'] = 'nosniff'
@@ -131,3 +161,23 @@ def receipt_preview(request, pk):
     response['X-Content-Type-Options'] = 'nosniff'
     response['Cache-Control'] = 'private, max-age=3600'
     return response
+
+
+@login_required
+def delete(request, pk):
+    """
+    Delete a receipt: its data, its uploaded file and any corrected copy.
+
+    GET shows what is about to go and asks; only the POST from that page
+    deletes, so a stray link or prefetch can never remove anything. Open to
+    the owner and to staff, like every other page for the receipt.
+    """
+    receipt = get_object_or_404(
+        Receipt.objects.visible_to(request.user), pk=pk)
+    if request.method == 'POST':
+        name = receipt.vendor_name or 'Receipt'
+        receipt.delete()  # the post_delete signal removes both files
+        messages.success(request, '%s was deleted.' % name)
+        return redirect('receipts:history')
+    return render(request, 'receipts/confirm_delete.html',
+                  {'receipt': receipt})

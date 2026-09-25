@@ -45,6 +45,11 @@ class Receipt(models.Model):
     date = models.CharField(max_length=100, null=True, blank=True)
     total_amount = models.FloatField(default=0.0)
     file = models.FileField(upload_to='receipts/')
+    # A picture drawn from the extracted data after someone corrects it. The
+    # uploaded `file` is never altered: it stays as the proof of what the
+    # vendor actually printed.
+    corrected_file = models.FileField(
+        upload_to='receipts/corrected/', blank=True)
     # Recorded at upload: the worker runs long after the request is gone
     # and still needs to know whether to rasterise a PDF.
     content_type = models.CharField(max_length=100, blank=True, default='')
@@ -103,7 +108,7 @@ class Receipt(models.Model):
 @receiver(post_delete, sender=Receipt)
 def delete_receipt_file(sender, instance, **kwargs):
     """
-    Remove the uploaded file when its receipt row goes.
+    Remove the uploaded file, and any corrected copy, when the receipt row goes.
 
     Django deletes the row and leaves the file, which is the safe default for a
     framework but wrong here: nothing else ever references that file, so it just
@@ -114,9 +119,10 @@ def delete_receipt_file(sender, instance, **kwargs):
     Failures are swallowed on purpose - the row is already gone by this point,
     and raising here would turn a tidy-up into a broken delete.
     """
-    if not instance.file:
-        return
-    try:
-        instance.file.delete(save=False)
-    except Exception:
-        pass
+    for field in (instance.file, instance.corrected_file):
+        if not field:
+            continue
+        try:
+            field.delete(save=False)
+        except Exception:
+            pass

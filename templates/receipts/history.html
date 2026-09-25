@@ -17,6 +17,7 @@ ReceiptIQ{% endblock %} {% block content %}
       <thead>
         <tr>
           <th>#</th>
+          <th>Receipt</th>
           <th>Vendor</th>
           {% if user.is_staff %}<th>Uploaded By</th>{% endif %}
           <th>Date</th>
@@ -29,6 +30,17 @@ ReceiptIQ{% endblock %} {% block content %}
         {% for receipt in receipts %}
         <tr>
           <td class="td-id">{{ forloop.counter }}</td>
+          <td class="td-thumb">
+            <a href="{% url 'receipts:detail' receipt.pk %}">
+              {% if receipt.corrected_file %}
+              <img src="{% url 'receipts:corrected' receipt.pk %}?v={{ receipt.edited_at|date:'U' }}"
+                alt="Corrected receipt" loading="lazy" />
+              {% elif receipt.file %}
+              <img src="{% url 'receipts:preview' receipt.pk %}" alt="Receipt"
+                loading="lazy" />
+              {% endif %}
+            </a>
+          </td>
           <td class="td-vendor">{{ receipt.vendor_name|default:"Unknown" }}</td>
           {% if user.is_staff %}<td>{{ receipt.user.email|default:receipt.user.username }}</td>{% endif %}
           <td>{{ receipt.date|default:"—" }}</td>

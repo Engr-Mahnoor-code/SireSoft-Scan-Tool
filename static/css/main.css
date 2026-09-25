@@ -1007,6 +1007,105 @@ body.page-login {
     color: var(--text);
 }
 
+/* ---- Receipt images, delete ---- */
+.header-actions {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+}
+
+.btn-danger {
+    background: var(--danger);
+}
+
+.btn-danger:hover {
+    background: #dc2626;
+}
+
+.btn-danger-outline {
+    background: transparent;
+    border: 1px solid rgba(239, 68, 68, 0.6);
+    color: #fca5a5;
+}
+
+.btn-danger-outline:hover {
+    background: var(--danger);
+    border-color: var(--danger);
+    color: #fff;
+}
+
+.image-tabs {
+    display: inline-flex;
+    gap: 0.25rem;
+    padding: 0.25rem;
+    margin-bottom: 0.85rem;
+    background: var(--bg-input);
+    border-radius: 8px;
+}
+
+.image-tab {
+    background: transparent;
+    border: 0;
+    border-radius: 6px;
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.4rem 0.9rem;
+    cursor: pointer;
+}
+
+.image-tab.is-active {
+    background: var(--accent);
+    color: #fff;
+}
+
+.td-thumb img {
+    display: block;
+    width: 44px;
+    height: 56px;
+    object-fit: cover;
+    object-position: top;
+    border-radius: 4px;
+    background: #fff;
+}
+
+.delete-card {
+    display: flex;
+    gap: 1.25rem;
+    align-items: flex-start;
+}
+
+.delete-thumb {
+    width: 110px;
+    border-radius: 6px;
+    background: #fff;
+    flex-shrink: 0;
+}
+
+.delete-title {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1.1rem;
+    margin-bottom: 0.35rem;
+}
+
+.delete-warning {
+    margin-top: 0.85rem;
+    font-size: 0.875rem;
+    color: #fca5a5;
+}
+
+.delete-actions {
+    margin-top: 1.25rem;
+    justify-content: flex-start;
+}
+
+@media (max-width: 640px) {
+    .delete-card {
+        flex-direction: column;
+    }
+}
+
 /* ---- Receipt edit ---- */
 .card-head {
     display: flex;

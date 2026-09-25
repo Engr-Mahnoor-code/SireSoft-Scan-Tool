@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Delete {{ receipt.vendor_name|default:"Receipt" }} — ReceiptIQ{% endblock %}
+{% block content %}
+<div class="page-header">
+  <a href="{% url 'receipts:detail' receipt.pk %}" class="back-link"
+    >&larr; Back to Receipt</a
+  >
+  <h1 class="page-title">Delete Receipt</h1>
+</div>
+
+<div class="results-panel results-panel-full">
+  <div class="card result-card delete-card">
+    {% if receipt.file %}
+    <img src="{% url 'receipts:preview' receipt.pk %}" alt="" class="delete-thumb" />
+    {% endif %}
+    <div>
+      <h2 class="delete-title">
+        Delete &ldquo;{{ receipt.vendor_name|default:"this receipt" }}&rdquo;?
+      </h2>
+      <p class="text-muted">
+        {% if receipt.date and receipt.date != 'N/A' %}{{ receipt.date }} &middot; {% endif %}
+        Total {{ receipt.total_amount|floatformat:2 }}
+        &middot; scanned {{ receipt.created_at|date:"M d, Y" }}
+        {% if user.is_staff and receipt.user_id != user.pk %}
+        &middot; uploaded by {{ receipt.user.email|default:receipt.user.username }}
+        {% endif %}
+      </p>
+      <p class="delete-warning">
+        The receipt, its uploaded picture{% if receipt.corrected_file %}, its
+        corrected copy{% endif %} and all its data will be removed for good.
+        This cannot be undone.
+      </p>
+      <form method="post" class="edit-actions delete-actions">
+        {% csrf_token %}
+        <a href="{% url 'receipts:detail' receipt.pk %}" class="btn btn-outline">Cancel</a>
+        <button type="submit" class="btn btn-danger">Delete Receipt</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

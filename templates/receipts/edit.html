@@ -7,7 +7,8 @@
   >
   <h1 class="page-title">Edit Receipt</h1>
   <p class="page-subtitle">
-    Correct anything the scan read wrong. The picture is below for reference.
+    Correct anything the scan read wrong. Saving draws a corrected picture;
+    the original scan below stays as it was.
   </p>
 </div>
 
@@ -96,18 +97,7 @@
   </div>
 </form>
 
-{% if receipt.file %}
-<div class="results-panel results-panel-full receipt-image-panel">
-  <div class="card result-card">
-    <h2 class="card-title">Receipt Image</h2>
-    <a href="{% url 'receipts:file' receipt.pk %}" target="_blank" rel="noopener"
-      class="receipt-image-link">
-      <img src="{% url 'receipts:preview' receipt.pk %}"
-        alt="Uploaded receipt {{ receipt.filename }}" class="receipt-image" />
-    </a>
-  </div>
-</div>
-{% endif %}
+{% include "receipts/_receipt_images.html" %}
 {% endblock %}
 
 {% block extra_js %}

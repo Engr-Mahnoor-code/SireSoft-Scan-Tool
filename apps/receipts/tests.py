@@ -343,3 +343,133 @@ class ReceiptEditTests(TestCase):
         for anchor in ('#id_est-address', '#items', '#bill',
                        '#id_notes-insights'):
             self.assertContains(detail, f'href="{self.url}{anchor}"')
+
+
+@override_settings(MEDIA_ROOT=MEDIA_ROOT)
+class CorrectedCopyAndDeleteTests(TestCase):
+    """Saving an edit draws a corrected picture; delete removes everything."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(
+            'owner', email='owner@example.com', password='pw-12345')
+        self.other = User.objects.create_user('other', password='pw-12345')
+        self.admin = User.objects.create_user(
+            'boss', password='pw-12345', is_staff=True)
+        self.receipt = Receipt.objects.create(
+            user=self.owner, vendor_name='Zetran', total_amount=10.0,
+            file=SimpleUploadedFile('scan.png', b'original-scan-bytes'),
+            content_type='image/png', status=Receipt.STATUS_SUCCESS,
+            extracted_data={
+                'establishment': {'name': 'Zetran', 'address': 'Old Street'},
+                'items': [{'name': 'Phone', 'quantity': 1,
+                           'unit_price': 10.0, 'total': 10.0}],
+                'bill_summary': {'grand_total': 10.0},
+                'insights': [],
+            })
+
+    def request(self, user, method='get', data=None):
+        # Views are called directly: the test client's template
+        # instrumentation crashes on Django 5.1 under Python 3.14, and would
+        # break the corrected-copy drawing, which renders a template.
+        from django.contrib.messages.storage.fallback import FallbackStorage
+        from django.contrib.sessions.backends.db import SessionStore
+        factory = RequestFactory()
+        request = factory.post('/', data) if method == 'post' else factory.get('/')
+        request.user = user
+        request.session = SessionStore()
+        request._messages = FallbackStorage(request)
+        request._dont_enforce_csrf_checks = True
+        return request
+
+    def save_edit(self, user, address):
+        data = {
+            'est-name': 'Zetran', 'est-date': '', 'est-time': '',
+            'est-address': address,
+            'items-TOTAL_FORMS': '1', 'items-INITIAL_FORMS': '1',
+            'items-MIN_NUM_FORMS': '0', 'items-MAX_NUM_FORMS': '200',
+            'items-0-name': 'Phone', 'items-0-quantity': '1',
+            'items-0-unit_price': '10', 'items-0-total': '10',
+            'bill-grand_total': '10', 'notes-insights': '',
+        }
+        response = views.edit(self.request(user, 'post', data),
+                              pk=self.receipt.pk)
+        self.assertEqual(response.status_code, 302)
+        self.receipt.refresh_from_db()
+
+    def test_edit_draws_a_corrected_png_and_keeps_the_scan(self):
+        import pymupdf
+        self.save_edit(self.owner, 'Gulistan-e-Jauhar')
+        self.assertTrue(self.receipt.corrected_file)
+        png = pymupdf.Pixmap(self.receipt.corrected_file.read())
+        self.assertGreater(png.width, 500)
+        # The upload itself is untouched.
+        self.receipt.file.open('rb')
+        self.assertEqual(self.receipt.file.read(), b'original-scan-bytes')
+        self.receipt.file.close()
+
+    def test_corrected_copy_shows_the_edited_values(self):
+        from django.template.loader import render_to_string
+        self.receipt.extracted_data['establishment']['address'] = 'Gulistan-e-Jauhar'
+        self.receipt.edited_by = self.owner
+        html = render_to_string('receipts/corrected_receipt.html', {
+            'receipt': self.receipt,
+            'establishment': self.receipt.extracted_data['establishment'],
+            'items': self.receipt.extracted_data['items'],
+            'bill': self.receipt.extracted_data['bill_summary'],
+        })
+        self.assertIn('Gulistan-e-Jauhar', html)
+        self.assertIn('CORRECTED COPY', html)
+        self.assertIn('owner@example.com', html)
+
+    def test_a_second_edit_replaces_the_old_copy(self):
+        self.save_edit(self.owner, 'First')
+        first = self.receipt.corrected_file.name
+        storage = self.receipt.corrected_file.storage
+        self.save_edit(self.owner, 'Second')
+        self.assertTrue(storage.exists(self.receipt.corrected_file.name))
+        if first != self.receipt.corrected_file.name:
+            self.assertFalse(storage.exists(first))
+
+    def test_corrected_copy_is_private_to_owner_and_staff(self):
+        self.save_edit(self.owner, 'Gulistan-e-Jauhar')
+        response = views.receipt_corrected(self.request(self.admin),
+                                           pk=self.receipt.pk)
+        self.assertEqual(response['Content-Type'], 'image/png')
+        with self.assertRaises(Http404):
+            views.receipt_corrected(self.request(self.other),
+                                    pk=self.receipt.pk)
+
+    def test_detail_and_history_show_the_corrected_copy(self):
+        self.save_edit(self.owner, 'Gulistan-e-Jauhar')
+        corrected = reverse('receipts:corrected', args=[self.receipt.pk])
+        detail = views.detail(self.request(self.owner), pk=self.receipt.pk)
+        self.assertContains(detail, 'Original scan')
+        self.assertContains(detail, corrected)
+        history = views.history(self.request(self.owner))
+        self.assertContains(history, corrected)
+
+    def test_delete_asks_first(self):
+        response = views.delete(self.request(self.owner), pk=self.receipt.pk)
+        self.assertContains(response, 'This cannot be undone.')
+        self.assertTrue(Receipt.objects.filter(pk=self.receipt.pk).exists())
+
+    def test_owner_deletes_receipt_and_both_files(self):
+        self.save_edit(self.owner, 'Gulistan-e-Jauhar')
+        storage = self.receipt.file.storage
+        files = [self.receipt.file.name, self.receipt.corrected_file.name]
+        response = views.delete(self.request(self.owner, 'post'),
+                                pk=self.receipt.pk)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response['Location'], reverse('receipts:history'))
+        self.assertFalse(Receipt.objects.filter(pk=self.receipt.pk).exists())
+        for name in files:
+            self.assertFalse(storage.exists(name))
+
+    def test_admin_can_delete_anyones_receipt(self):
+        views.delete(self.request(self.admin, 'post'), pk=self.receipt.pk)
+        self.assertFalse(Receipt.objects.filter(pk=self.receipt.pk).exists())
+
+    def test_other_user_cannot_delete(self):
+        with self.assertRaises(Http404):
+            views.delete(self.request(self.other, 'post'), pk=self.receipt.pk)
+        self.assertTrue(Receipt.objects.filter(pk=self.receipt.pk).exists())
