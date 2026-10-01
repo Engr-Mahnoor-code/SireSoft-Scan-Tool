@@ -93,6 +93,11 @@ img {
     text-decoration: none;
 }
 
+.navbar-brand:hover,
+.navbar-brand:focus {
+    text-decoration: none;
+}
+
 .navbar-logo {
     height: 40px;
     width: auto;
