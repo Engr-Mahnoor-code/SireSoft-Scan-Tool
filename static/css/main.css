@@ -998,6 +998,11 @@ body.page-login {
     gap: 0.5rem;
 }
 
+.summary-insights {
+    margin: 0.5rem 0;
+    padding: 0;
+}
+
 .insights-list li {
     font-size: 0.875rem;
     padding: 0.6rem 0.85rem;

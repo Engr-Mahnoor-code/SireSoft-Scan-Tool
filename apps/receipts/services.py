@@ -59,6 +59,9 @@ Use exactly this structure:
         "subtotal": 0.0,
         "tax": 0.0,
         "discount": 0.0,
+        "other_lines": [
+            {"label": "any other charge as printed, e.g. Delivery Charges, Service Fee, Donation", "amount": 0.0}
+        ],
         "grand_total": 0.0,
         "payment_method": "cash, card, or whatever is printed"
     },
@@ -71,7 +74,8 @@ Use exactly this structure:
 Rules:
 - Every price, quantity and total must be a plain number such as 12.5 — never a string, never a currency symbol.
 - If a value is not printed on the receipt, use 0.0 for numbers and an empty string for text. Do not invent values.
-- List every item you can read, in the order they appear."""
+- List every item you can read, in the order they appear.
+- Every amount printed between the subtotal and the grand total that is not tax or discount (delivery charges, service fees, donations, packaging, and so on) goes in "other_lines", one entry each, in the order printed. Use an empty list if there are none."""
 
 
 class OllamaError(Exception):

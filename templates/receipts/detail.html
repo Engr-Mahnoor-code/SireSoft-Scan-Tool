@@ -187,6 +187,13 @@
         <span>{{ line.label }}</span><span>{{ line.amount }}</span>
       </div>
       {% endfor %}
+      {% if data.insights %}
+      <ul class="insights-list summary-insights">
+        {% for insight in data.insights %}
+        <li>{{ insight }}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
       <div class="summary-row summary-total">
         <span>Grand Total</span><span>{{ data.bill_summary.grand_total }}</span>
       </div>

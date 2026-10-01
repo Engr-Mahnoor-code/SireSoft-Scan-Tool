@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-32 -1 92 84" width="92" height="84" role="img" aria-label="SireSoft">
+  <defs>
+    <linearGradient id="siresoft-icon-fill" x1="0" y1="0" x2="0" y2="82" gradientUnits="userSpaceOnUse">
+      <!-- Sampled down the SireSoft PMT header icon. -->
+      <stop offset="0" stop-color="#1d7ee8"/>
+      <stop offset="0.33" stop-color="#66a4f2"/>
+      <stop offset="0.67" stop-color="#bad4f8"/>
+      <stop offset="1" stop-color="#f7f8fa"/>
+    </linearGradient>
+    <!-- The mark on a flat grid (u runs along the long bars, v across them),
+         bars 12 wide with 4 between, then tipped into isometric view so the
+         long bars run down to the right. Two hooks interlock - a "⊂" from the
+         top-left and a "⊃" from the bottom-right - with a loose bar outside
+         each. The whole mark is symmetric under a half turn. -->
+    <mask id="siresoft-icon-shape" maskUnits="userSpaceOnUse" x="-32" y="-1" width="92" height="84">
+      <g fill="#fff" transform="matrix(0.7071 0.4875 -0.7071 0.4875 0 0)">
+        <!-- top-left hook: short top arm, side, long bottom arm -->
+        <rect x="0" y="0" width="57" height="12"/>
+        <rect x="0" y="0" width="12" height="44"/>
+        <rect x="0" y="32" width="92" height="12"/>
+        <!-- bottom-right hook: long top arm, side, short bottom arm -->
+        <rect x="16" y="16" width="92" height="12"/>
+        <rect x="96" y="16" width="12" height="44"/>
+        <rect x="51" y="48" width="57" height="12"/>
+        <!-- loose bars, top-right and bottom-left -->
+        <rect x="16" y="-16" width="60" height="12"/>
+        <rect x="32" y="64" width="60" height="12"/>
+      </g>
+    </mask>
+  </defs>
+  <!-- The right edge is cropped straight down, through the top-right bar
+       and the right-hand corner, as in the SireSoft PMT logo. Filled flat so the gradient runs straight down the screen rather than
+       along the tipped grid. -->
+  <rect x="-32" y="-1" width="92" height="84" fill="url(#siresoft-icon-fill)"
+        mask="url(#siresoft-icon-shape)"/>
+</svg>

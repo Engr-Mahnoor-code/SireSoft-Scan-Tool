@@ -4,7 +4,7 @@ The corrected copy of a receipt: a clean receipt drawn from its edited data.
 The uploaded scan is evidence of what the vendor printed and is never altered;
 it stays on the Original scan tab. When someone corrects the extracted data,
 this module draws a fresh receipt carrying every corrected value - name,
-address, date, details, items, totals - in SireSoft's own layout, labelled as
+address, date, details, items, totals, insights - in SireSoft's own layout, labelled as
 a corrected copy with who edited it and when. It is never a replica of the
 vendor's document.
 
@@ -37,6 +37,7 @@ def corrected_context(receipt):
         'detail_rows': [details[i:i + 2] for i in range(0, len(details), 2)],
         'items': data.get('items') or [],
         'bill': data.get('bill_summary') or {},
+        'insights': [i for i in data.get('insights') or [] if i],
         'edited_at': timezone.localtime(receipt.edited_at or timezone.now()),
         'editor': (receipt.edited_by.email or receipt.edited_by.username
                    if receipt.edited_by else 'a user'),
