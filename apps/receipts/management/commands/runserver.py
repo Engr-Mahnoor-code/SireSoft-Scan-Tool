@@ -3,7 +3,7 @@
 
 Binding to 0.0.0.0 is right - it is what makes the site reachable both on the
 machine itself and from anywhere else on the network. Printing it is not:
-`http://0.0.0.0:8002/` is not an address anyone can type, and on a screen shown
+`http://0.0.0.0:9001/` is not an address anyone can type, and on a screen shown
 to a client it reads as something misconfigured.
 
 So the bind is left alone and only the banner is replaced, with the addresses

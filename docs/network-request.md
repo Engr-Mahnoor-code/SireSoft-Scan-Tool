@@ -1,7 +1,7 @@
 # Network request: public access for ReceiptIQ
 
 ReceiptIQ runs on `lsnet` (`10.0.2.2`) and is reachable today only from inside
-the VPN, at `http://10.0.2.2:8002`. Staff need to reach it from outside as well.
+the VPN, at `http://10.0.2.2:9001`. Staff need to reach it from outside as well.
 
 It is currently served through a temporary Cloudflare quick tunnel. That works,
 but the hostname is random, it changes on every restart, and it is not something
@@ -30,8 +30,8 @@ Port 80 is only used for certificate issuance and renewal; all real traffic is
 redirected to HTTPS. If DNS-01 validation is preferred instead, port 80 can be
 left closed — say which you prefer.
 
-Note this is **443/80, not 8002**. A reverse proxy on the server will terminate
-TLS and pass requests to the application on 8002 internally, so 8002 itself
+Note this is **443/80, not 9001**. A reverse proxy on the server will terminate
+TLS and pass requests to the application on 9001 internally, so 9001 itself
 never needs to be exposed.
 
 ## What happens on the server afterwards

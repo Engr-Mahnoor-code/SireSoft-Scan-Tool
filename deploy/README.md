@@ -6,7 +6,7 @@ database, port and systemd units.
 
     Project dir:   /home/siresoft/siresoft-receiptiq
     Service name:  siresoft-receiptiq
-    Port:          8002
+    Port:          9001
     Database:      siresoft_receiptiq_db
 
 The wrapper scripts work out the project directory from their own location, so
@@ -22,7 +22,7 @@ files name a path.
 
 Settings live in one place only — `/home/siresoft/siresoft-receiptiq/.env`:
 
-    APP_PORT=8002
+    APP_PORT=9001
     GUNICORN_WORKERS=3
     GUNICORN_TIMEOUT=600
     NGROK_URL=https://<your-reserved-domain>.ngrok-free.dev
@@ -62,7 +62,7 @@ Create its own database (the older install keeps its own):
 Then write `.env` from the template and fill in real values:
 
     cp .env.example .env
-    nano .env          # SECRET_KEY, DB_*, OLLAMA_MODEL, APP_PORT=8002
+    nano .env          # SECRET_KEY, DB_*, OLLAMA_MODEL, APP_PORT=9001
     chmod 600 .env
 
 `.env` is gitignored and is never overwritten by `git pull`. Keep a copy
@@ -160,7 +160,7 @@ The wrapper runs as `siresoft`, who owns the file, so sourcing `.env` succeeds.
 
 Open the port:
 
-    sudo firewall-cmd --permanent --add-port=8002/tcp && sudo firewall-cmd --reload
+    sudo firewall-cmd --permanent --add-port=9001/tcp && sudo firewall-cmd --reload
 
 To survive a full filesystem relabel, make the SELinux context permanent:
 
@@ -208,7 +208,7 @@ and your changes simply will not appear in the browser.
 ## Health check
 
     systemctl is-active siresoft-receiptiq siresoft-receiptiq-worker
-    curl -I http://10.0.2.2:8002/
+    curl -I http://10.0.2.2:9001/
     journalctl -u siresoft-receiptiq -n 50 --no-pager
 
 The worker log is where a stuck receipt explains itself — it names the

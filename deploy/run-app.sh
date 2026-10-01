@@ -7,7 +7,7 @@ PROJECT_DIR="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
 . "$PROJECT_DIR/deploy/load-env.sh"
 cd "$PROJECT_DIR"
 exec ./venv/bin/gunicorn config.wsgi:application \
-    --bind "0.0.0.0:${APP_PORT:-8001}" \
+    --bind "0.0.0.0:${APP_PORT:-9001}" \
     --workers "${GUNICORN_WORKERS:-3}" \
     --timeout "${GUNICORN_TIMEOUT:-600}" \
     --access-logfile -

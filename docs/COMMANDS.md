@@ -3,7 +3,7 @@
     Project dir:   /home/siresoft/siresoft-receiptiq
     Services:      siresoft-receiptiq, siresoft-receiptiq-worker,
                    siresoft-receiptiq-tunnel
-    Port:          8002
+    Port:          9001
 
 ## How to open the project
 
@@ -13,7 +13,7 @@ it, just open a browser:
 
 | Situation | Address |
 |---|---|
-| Connected to the VPN | `http://10.0.2.2:8002` |
+| Connected to the VPN | `http://10.0.2.2:9001` |
 | VPN off, anywhere | the tunnel address - see "Public URL" below |
 
 `10.0.2.2` is a private address inside the VPN. With the VPN off it is not
@@ -28,17 +28,17 @@ from inside that machine and nothing on your laptop can reach it. It is also a
 development server, and it dies the moment the SSH session closes.
 
 `runserver` is for a laptop, where `127.0.0.1` really is your own machine. On
-the server, gunicorn under systemd is what serves the app, on port 8002.
+the server, gunicorn under systemd is what serves the app, on port 9001.
 
 If you try it here anyway, it now stops with "That port is already in use" -
 manage.py defaults `runserver` to `0.0.0.0:APP_PORT`, and gunicorn already holds
-8002. That refusal is the point: it says the app is running, rather than quietly
+9001. That refusal is the point: it says the app is running, rather than quietly
 starting a second one on a port nobody can reach.
 
 ## Is it running?   <-- needed 99% of the time
 
     systemctl is-active siresoft-receiptiq siresoft-receiptiq-worker
-    curl -I http://10.0.2.2:8002/
+    curl -I http://10.0.2.2:9001/
 
 Two "active" lines and `HTTP/1.1 302 Found` mean yes. The 302 is the app
 redirecting to its login page, which is the correct answer for a logged-out
@@ -104,9 +104,9 @@ previous CSS and JS and the change appears not to have worked.
     deactivate
     sudo systemctl restart siresoft-receiptiq
 
-## Testing code on a spare port (never use 8002)
+## Testing code on a spare port (never use 9001)
 
-A bare `runserver` will refuse here, because 8002 belongs to gunicorn. Name a
+A bare `runserver` will refuse here, because 9001 belongs to gunicorn. Name a
 free port explicitly:
 
     source venv/bin/activate
@@ -114,7 +114,7 @@ free port explicitly:
     # Ctrl+C to stop, then: deactivate
 
 On a laptop none of this applies: `python manage.py runserver` picks up
-`0.0.0.0:8002` on its own, so the app sits at http://127.0.0.1:8002 - the same
+`0.0.0.0:9001` on its own, so the app sits at http://127.0.0.1:9001 - the same
 port as the server, and reachable from another device on the same network by
 that laptop's own address.
 
@@ -140,7 +140,7 @@ any restart or reboot, and tell whoever uses the app.
 
 ## Network checks
 
-    sudo ss -tlnp | grep 8002
+    sudo ss -tlnp | grep 9001
     sudo firewall-cmd --list-all
     curl -s ifconfig.me
 
