@@ -3,6 +3,8 @@ import json
 from django.contrib import admin
 from django.utils.html import format_html
 
+from apps.accounts.retention import expires_at
+
 from .models import Receipt
 
 
@@ -20,7 +22,7 @@ class ReceiptAdmin(admin.ModelAdmin):
 
     list_display = (
         'id', 'vendor_name', 'date', 'total_amount', 'status',
-        'user', 'created_at',
+        'user', 'created_at', 'deletes_at',
     )
     list_display_links = ('id', 'vendor_name')
     list_filter = ('status', 'created_at', 'user')
@@ -32,7 +34,8 @@ class ReceiptAdmin(admin.ModelAdmin):
     readonly_fields = (
         'user', 'vendor_name', 'date', 'total_amount', 'file', 'stored_file',
         'content_type', 'status', 'error_message', 'attempts',
-        'created_at', 'started_at', 'processed_at', 'pretty_extracted_data',
+        'created_at', 'deletes_at', 'started_at', 'processed_at',
+        'pretty_extracted_data',
     )
 
     fieldsets = (
@@ -44,7 +47,8 @@ class ReceiptAdmin(admin.ModelAdmin):
         }),
         ('Processing', {
             'fields': ('status', 'error_message', 'attempts',
-                       'created_at', 'started_at', 'processed_at'),
+                       'created_at', 'deletes_at', 'started_at',
+                       'processed_at'),
         }),
         ('Extracted data', {
             'fields': ('pretty_extracted_data',),
@@ -56,6 +60,12 @@ class ReceiptAdmin(admin.ModelAdmin):
 
     def has_change_permission(self, request, obj=None):
         return False
+
+    @admin.display(description='Deletes at')
+    def deletes_at(self, obj):
+        """When the 24-hour clean-up removes this receipt; admin's are kept."""
+        when = expires_at(obj)
+        return when if when else 'Kept'
 
     @admin.display(description='Stored at')
     def stored_file(self, obj):
