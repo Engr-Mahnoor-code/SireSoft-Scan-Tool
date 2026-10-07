@@ -1,3 +1,4 @@
+from django.contrib import admin
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect
@@ -62,3 +63,17 @@ def csrf_failure(request, reason=''):
         return redirect('/')
     request.session['form_expired'] = True
     return redirect('accounts:login')
+
+
+def admin_login(request):
+    """
+    Django Administration's login, minus the red "not authorized" box.
+
+    Django shows that box when someone signed in to the app as an ordinary
+    user opens /admin/. Only the admin may use it, so that visitor is signed
+    out and sees a clean login form for the admin account instead.
+    """
+    if request.user.is_authenticated and not request.user.is_staff:
+        logout(request)
+        return redirect(request.get_full_path())
+    return admin.site.login(request)

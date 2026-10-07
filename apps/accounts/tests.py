@@ -232,3 +232,25 @@ class StaleFormTests(TestCase):
         self.assertRedirects(response, '/auth/login/',
                              fetch_redirect_response=False)
         self.assertTrue(self.client.session['form_expired'])
+
+
+class AdminLoginTests(TestCase):
+    """Ordinary users opening /admin/ get a clean login, not an error box."""
+
+    def test_ordinary_user_is_signed_out_first(self):
+        user = User.objects.create_user('u', email='u@example.com',
+                                        password='x')
+        self.client.force_login(user)
+        response = self.client.get('/admin/login/?next=/admin/')
+        self.assertRedirects(response, '/admin/login/?next=/admin/',
+                             fetch_redirect_response=False)
+        self.assertNotIn('_auth_user_id', self.client.session)
+
+    def test_admin_login_still_works(self):
+        User.objects.create_superuser(
+            'admin', email='admin@siresoft.com', password='Test-pass-123')
+        response = self.client.post('/admin/login/?next=/admin/', {
+            'username': 'admin', 'password': 'Test-pass-123',
+            'next': '/admin/'})
+        self.assertRedirects(response, '/admin/',
+                             fetch_redirect_response=False)

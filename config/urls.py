@@ -19,7 +19,11 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 
+from apps.accounts.views import admin_login
+
 urlpatterns = [
+    # Ahead of admin.site.urls, so it replaces the stock admin login.
+    path('admin/login/', admin_login, name='admin_login'),
     path('admin/', admin.site.urls),
     path('', include('apps.receipts.urls')),
     path('auth/', include('apps.accounts.urls')),
