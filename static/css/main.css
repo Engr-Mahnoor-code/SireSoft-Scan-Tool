@@ -1256,6 +1256,157 @@ body.page-login {
     margin-left: 0.5rem;
 }
 
+/* ---- History table: compact columns ---- */
+.history-table td {
+    vertical-align: middle;
+}
+
+.history-table .th-num { width: 2rem; }
+.history-table .th-right { text-align: right; }
+
+.receipt-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: inherit;
+    text-decoration: none;
+    min-width: 0;
+}
+
+.receipt-cell:hover { text-decoration: none; }
+.receipt-cell:hover .td-vendor { color: var(--accent); }
+
+.receipt-cell .td-thumb img {
+    width: 38px;
+    height: 48px;
+}
+
+.receipt-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+}
+
+.receipt-meta .td-vendor {
+    line-height: 1.25;
+    transition: color var(--transition);
+}
+
+.receipt-sub {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.receipt-owner {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    max-width: 230px;
+    font-size: 0.75rem;
+    color: #93c5fd;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.receipt-owner svg {
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+}
+
+.history-table th,
+.history-table td {
+    padding-left: 0.6rem;
+    padding-right: 0.6rem;
+}
+
+.history-table .td-amount { white-space: nowrap; }
+
+.td-date .date-main {
+    display: block;
+    white-space: nowrap;
+    color: var(--text);
+}
+
+.td-ttl { white-space: nowrap; }
+
+/* Icon buttons: three actions in the width of one text button. */
+.icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    border: 1px solid rgba(59, 130, 246, 0.45);
+    background: rgba(59, 130, 246, 0.12);
+    color: #93c5fd;
+    transition: background var(--transition), color var(--transition),
+        border-color var(--transition), transform var(--transition);
+}
+
+.icon-btn + .icon-btn { margin-left: 0.4rem; }
+
+.icon-btn svg {
+    width: 17px;
+    height: 17px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.icon-btn:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    text-decoration: none;
+    transform: translateY(-1px);
+}
+
+.icon-btn-danger {
+    border-color: rgba(239, 68, 68, 0.45);
+    background: rgba(239, 68, 68, 0.12);
+    color: #fca5a5;
+}
+
+.icon-btn-danger:hover {
+    background: var(--danger);
+    border-color: var(--danger);
+}
+
+/* Narrower windows: drop the ring's caption before anything scrolls. */
+@media (max-width: 1100px) {
+    .ttl-label { display: none; }
+    .ttl { padding-right: 0.7rem; gap: 0.45rem; }
+    .receipt-owner { max-width: 170px; }
+}
+
+@media (max-width: 900px) {
+    .history-table .th-num,
+    .history-table .td-id { display: none; }
+    .history-card { padding-left: 0.75rem; padding-right: 0.75rem; }
+    .ttl-ring { width: 30px; height: 30px; }
+    .ttl-time { font-size: 0.85rem; }
+    .icon-btn { width: 30px; height: 30px; }
+    .icon-btn + .icon-btn { margin-left: 0.25rem; }
+}
+
+@media (max-width: 800px) {
+    .main-content { padding-left: 1rem; padding-right: 1rem; }
+    .receipt-cell .td-thumb { display: none; }
+    .receipt-owner { max-width: 150px; }
+    .ttl { padding: 0.3rem 0.6rem 0.3rem 0.35rem; }
+}
+
 .result-card {
     scroll-margin-top: 5.5rem;
 }

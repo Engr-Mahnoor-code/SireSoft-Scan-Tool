@@ -11,42 +11,52 @@ SireSoft Scan Tool{% endblock %} {% block content %}
 </div>
 
 {% if receipts %}
-<div class="card">
+<div class="card history-card">
   <div class="table-wrapper">
     <table class="history-table">
       <thead>
         <tr>
-          <th>#</th>
-          <th>Receipt</th>
-          <th>Vendor</th>
-          {% if user.is_staff %}<th>Uploaded By</th>{% endif %}
-          <th>Date</th>
-          <th>Total</th>
+          <th class="th-num">#</th>
+          <th>{% if user.is_staff %}Receipt · Uploaded By{% else %}Receipt{% endif %}</th>
+          <th class="th-right">Total</th>
           <th>Scanned On</th>
           <th title="Each receipt is deleted automatically 24 hours after upload">Auto-Delete In</th>
-          <th></th>
+          <th class="th-right">Actions</th>
         </tr>
       </thead>
       <tbody>
         {% for receipt in receipts %}
         <tr>
           <td class="td-id">{{ forloop.counter }}</td>
-          <td class="td-thumb">
-            <a href="{% url 'receipts:detail' receipt.pk %}">
-              {% if receipt.corrected_file %}
-              <img src="{% url 'receipts:corrected' receipt.pk %}?v={{ receipt.edited_at|date:'U' }}"
-                alt="Corrected receipt" loading="lazy" />
-              {% elif receipt.file %}
-              <img src="{% url 'receipts:preview' receipt.pk %}" alt="Receipt"
-                loading="lazy" />
-              {% endif %}
+          <td>
+            <a class="receipt-cell" href="{% url 'receipts:detail' receipt.pk %}">
+              <span class="td-thumb">
+                {% if receipt.corrected_file %}
+                <img src="{% url 'receipts:corrected' receipt.pk %}?v={{ receipt.edited_at|date:'U' }}"
+                  alt="Corrected receipt" loading="lazy" />
+                {% elif receipt.file %}
+                <img src="{% url 'receipts:preview' receipt.pk %}" alt="Receipt"
+                  loading="lazy" />
+                {% endif %}
+              </span>
+              <span class="receipt-meta">
+                <span class="td-vendor">{{ receipt.vendor_name|default:"Unknown" }}</span>
+                <span class="receipt-sub">Bill date: {{ receipt.date|default:"—" }}</span>
+                {% if user.is_staff %}
+                {% with owner=receipt.user.email|default:receipt.user.username %}
+                <span class="receipt-owner" title="Uploaded by {{ owner }}">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>{{ owner }}
+                </span>
+                {% endwith %}
+                {% endif %}
+              </span>
             </a>
           </td>
-          <td class="td-vendor">{{ receipt.vendor_name|default:"Unknown" }}</td>
-          {% if user.is_staff %}<td>{{ receipt.user.email|default:receipt.user.username }}</td>{% endif %}
-          <td>{{ receipt.date|default:"—" }}</td>
-          <td class="td-amount">${{ receipt.total_amount|floatformat:2 }}</td>
-          <td class="td-date">{{ receipt.created_at|date:"M d, Y H:i" }}</td>
+          <td class="td-amount th-right">${{ receipt.total_amount|floatformat:2 }}</td>
+          <td class="td-date">
+            <span class="date-main">{{ receipt.created_at|date:"M d, Y" }}</span>
+            <span class="receipt-sub">{{ receipt.created_at|date:"H:i" }}</span>
+          </td>
           <td class="td-ttl">
             <div class="ttl" data-expires="{{ receipt.delete_at|date:'c' }}"
               title="Deleted automatically on {{ receipt.delete_at|date:'j M Y, H:i' }}">
@@ -62,13 +72,18 @@ SireSoft Scan Tool{% endblock %} {% block content %}
             </div>
           </td>
           <td class="td-actions">
-            <a href="{% url 'receipts:detail' receipt.pk %}" class="btn btn-sm"
-              >View</a
-            >
-            <a href="{% url 'receipts:edit' receipt.pk %}"
-              class="btn btn-sm">Edit</a>
-            <a href="{% url 'receipts:delete' receipt.pk %}"
-              class="btn btn-sm btn-danger">Delete</a>
+            <a href="{% url 'receipts:detail' receipt.pk %}" class="icon-btn"
+              title="View receipt" aria-label="View receipt">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+            </a>
+            <a href="{% url 'receipts:edit' receipt.pk %}" class="icon-btn"
+              title="Edit receipt" aria-label="Edit receipt">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+            </a>
+            <a href="{% url 'receipts:delete' receipt.pk %}" class="icon-btn icon-btn-danger"
+              title="Delete receipt" aria-label="Delete receipt">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+            </a>
           </td>
         </tr>
         {% endfor %}
