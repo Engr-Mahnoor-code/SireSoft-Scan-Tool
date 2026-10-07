@@ -966,6 +966,56 @@ body.page-login {
     font-size: 0.8rem;
 }
 
+/* ---- Auto-delete countdown ---- */
+.ttl-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.3rem 0.7rem;
+    border-radius: 999px;
+    border: 1px solid rgba(34, 197, 94, 0.35);
+    background: rgba(34, 197, 94, 0.1);
+    color: #86efac;
+    font-size: 0.78rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.ttl-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+    flex-shrink: 0;
+}
+
+.ttl-badge.ttl-warn {
+    border-color: rgba(245, 158, 11, 0.4);
+    background: rgba(245, 158, 11, 0.12);
+    color: #fcd34d;
+}
+
+.ttl-badge.ttl-urgent {
+    border-color: rgba(239, 68, 68, 0.45);
+    background: rgba(239, 68, 68, 0.12);
+    color: #fca5a5;
+}
+
+.ttl-badge.ttl-urgent .ttl-dot {
+    animation: ttl-pulse 1.2s ease-in-out infinite;
+}
+
+.ttl-badge.ttl-kept {
+    border-color: var(--border);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-muted);
+}
+
+@keyframes ttl-pulse {
+    50% { opacity: 0.3; }
+}
+
 /* ---- Bill Summary ---- */
 .summary-list {
     display: flex;

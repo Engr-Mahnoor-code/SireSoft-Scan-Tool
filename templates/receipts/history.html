@@ -29,6 +29,7 @@ SireSoft Scan Tool{% endblock %} {% block content %}
           <th>Date</th>
           <th>Total</th>
           <th>Scanned On</th>
+          <th>Auto-Delete</th>
           <th></th>
         </tr>
       </thead>
@@ -52,6 +53,19 @@ SireSoft Scan Tool{% endblock %} {% block content %}
           <td>{{ receipt.date|default:"—" }}</td>
           <td class="td-amount">${{ receipt.total_amount|floatformat:2 }}</td>
           <td class="td-date">{{ receipt.created_at|date:"M d, Y H:i" }}</td>
+          <td class="td-ttl">
+            {% if receipt.delete_at %}
+            <span class="ttl-badge" data-expires="{{ receipt.delete_at|date:'c' }}"
+              title="Deleted on {{ receipt.delete_at|date:'j M Y, H:i' }}">
+              <span class="ttl-dot"></span>
+              <span class="ttl-text">{{ receipt.delete_at|timeuntil }} left</span>
+            </span>
+            {% else %}
+            <span class="ttl-badge ttl-kept" title="Admin receipts are never deleted automatically">
+              <span class="ttl-dot"></span><span class="ttl-text">Kept</span>
+            </span>
+            {% endif %}
+          </td>
           <td class="td-actions">
             <a href="{% url 'receipts:detail' receipt.pk %}" class="btn btn-sm"
               >View</a
@@ -93,3 +107,36 @@ SireSoft Scan Tool{% endblock %} {% block content %}
   <a href="{% url 'receipts:index' %}" class="btn">Upload Receipt</a>
 </div>
 {% endif %} {% endblock %}
+
+{% block extra_js %}
+<script>
+  // Live countdown for each receipt's Auto-Delete badge.
+  (function () {
+    var badges = document.querySelectorAll('.ttl-badge[data-expires]');
+    if (!badges.length) return;
+    function pad(n) { return n < 10 ? '0' + n : '' + n; }
+    function tick() {
+      var now = Date.now();
+      badges.forEach(function (badge) {
+        var left = Date.parse(badge.dataset.expires) - now;
+        var text = badge.querySelector('.ttl-text');
+        badge.classList.remove('ttl-warn', 'ttl-urgent');
+        if (left <= 0) {
+          text.textContent = 'Deleting…';
+          badge.classList.add('ttl-urgent');
+          return;
+        }
+        var s = Math.floor(left / 1000);
+        var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+        text.textContent = h > 0
+          ? h + 'h ' + pad(m) + 'm left'
+          : m + 'm ' + pad(s % 60) + 's left';
+        if (left < 3600e3) badge.classList.add('ttl-urgent');
+        else if (left < 3 * 3600e3) badge.classList.add('ttl-warn');
+      });
+    }
+    tick();
+    setInterval(tick, 1000);
+  })();
+</script>
+{% endblock %}
