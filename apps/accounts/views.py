@@ -1,13 +1,17 @@
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect
+from django.views.decorators.cache import never_cache
 from .forms import LoginForm, RegisterForm
 
 
+@never_cache
 def login_view(request):
     if request.user.is_authenticated:
         return redirect('/')
     registered = False
+    # Set by csrf_failure when a stale copy of this page was submitted.
+    expired = request.session.pop('form_expired', False)
     if request.method == 'POST':
         form = LoginForm(request, data=request.POST)
         if form.is_valid():
@@ -20,9 +24,11 @@ def login_view(request):
         registered = bool(email)
         form = LoginForm(request, initial={'username': email})
     return render(request, 'accounts/login.html',
-                  {'form': form, 'registered': registered})
+                  {'form': form, 'registered': registered,
+                   'expired': expired})
 
 
+@never_cache
 def register_view(request):
     if request.user.is_authenticated:
         return redirect('/')
@@ -41,3 +47,18 @@ def register_view(request):
 def logout_view(request):
     logout(request)
     return redirect('/auth/login/')
+
+
+def csrf_failure(request, reason=''):
+    """
+    Recover from a stale form instead of showing Django's bare 403 page.
+
+    It happens when an old copy of a form is sent again - the back button,
+    "Confirm Form Resubmission", or signing in from a second tab - after the
+    security token has changed. Someone already signed in simply carries on;
+    anyone else gets a fresh login page with a short note.
+    """
+    if request.user.is_authenticated:
+        return redirect('/')
+    request.session['form_expired'] = True
+    return redirect('accounts:login')

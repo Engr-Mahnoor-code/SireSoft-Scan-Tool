@@ -5,9 +5,8 @@ Each receipt has its own clock: one uploaded at 15:00 is removed at 15:00 the
 next day, one uploaded at 16:00 at 16:00 the next day. The row leaves
 PostgreSQL (so History and Django Administration no longer show it) and the
 receipt model's post_delete handler removes its uploaded and corrected files
-from disk. User accounts are kept.
-
-Receipts owned by staff (the admin) are never touched.
+from disk. This applies to every receipt, the admin's included. User accounts
+(email and password) are never deleted.
 """
 
 import logging
@@ -23,23 +22,15 @@ def data_lifetime():
     return timedelta(hours=settings.USER_DATA_TTL_HOURS)
 
 
-def is_exempt(user):
-    return user.is_staff or user.is_superuser
-
-
 def expires_at(receipt):
-    """When `receipt` will be deleted, or None if it is kept."""
-    if is_exempt(receipt.user):
-        return None
+    """When `receipt` will be deleted."""
     return receipt.created_at + data_lifetime()
 
 
 def expired_receipts(now=None):
     from apps.receipts.models import Receipt
     cutoff = (now or timezone.now()) - data_lifetime()
-    return Receipt.objects.filter(
-        user__is_staff=False, user__is_superuser=False,
-        created_at__lte=cutoff)
+    return Receipt.objects.filter(created_at__lte=cutoff)
 
 
 def purge_expired_receipts(now=None):

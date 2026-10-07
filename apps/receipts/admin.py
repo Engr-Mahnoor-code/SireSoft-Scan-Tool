@@ -63,9 +63,8 @@ class ReceiptAdmin(admin.ModelAdmin):
 
     @admin.display(description='Deletes at')
     def deletes_at(self, obj):
-        """When the 24-hour clean-up removes this receipt; admin's are kept."""
-        when = expires_at(obj)
-        return when if when else 'Kept'
+        """When the 24-hour clean-up removes this receipt."""
+        return expires_at(obj)
 
     @admin.display(description='Stored at')
     def stored_file(self, obj):

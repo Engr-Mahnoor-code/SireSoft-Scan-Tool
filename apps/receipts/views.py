@@ -38,7 +38,7 @@ def history(request):
                 .exclude(status=Receipt.STATUS_FAILED)
                 .select_related('user'))
     for receipt in receipts:
-        # Each receipt's own deadline; None for staff-owned ones, which stay.
+        # Each receipt's own 24-hour deadline, counted from its upload.
         receipt.delete_at = expires_at(receipt)
     return render(request, 'receipts/history.html', {'receipts': receipts})
 

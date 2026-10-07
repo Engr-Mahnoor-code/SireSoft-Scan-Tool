@@ -3,6 +3,12 @@
 {% block card %}
 <p class="login-heading">Sign in to your workspace</p>
 
+{% if expired %}
+<p class="login-success">
+  That page had expired. Please sign in again.
+</p>
+{% endif %}
+
 {% if registered %}
 <p class="login-success">
   Account created. Sign in with your email and password.

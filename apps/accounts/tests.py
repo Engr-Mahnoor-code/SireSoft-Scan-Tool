@@ -146,7 +146,7 @@ class EnsureAdminTests(TestCase):
 
 
 class RetentionTests(TestCase):
-    """Each receipt goes 24 hours after its own upload; accounts stay."""
+    """Every receipt goes 24 hours after its own upload; accounts stay."""
 
     def make_receipt(self, user, uploaded):
         from django.core.files.base import ContentFile
@@ -175,9 +175,11 @@ class RetentionTests(TestCase):
 
         self.assertEqual(expires_at(at_four), at_four.created_at
                          + timedelta(hours=24))
-        self.assertIsNone(expires_at(kept))
 
-        self.assertEqual(purge_expired_receipts(now), 1)
+        # The admin's month-old receipt goes too: the limit is for everyone.
+        self.assertEqual(purge_expired_receipts(now), 2)
+        self.assertFalse(Receipt.objects.filter(pk=kept.pk).exists())
+        self.assertTrue(User.objects.filter(pk=admin.pk).exists())
         self.assertFalse(Receipt.objects.filter(pk=at_three.pk).exists())
         self.assertFalse(os.path.exists(path))
         self.assertTrue(Receipt.objects.filter(pk=at_four.pk).exists())
@@ -185,8 +187,7 @@ class RetentionTests(TestCase):
 
         # An hour later the second receipt's 24 hours are up too.
         self.assertEqual(purge_expired_receipts(now + timedelta(hours=1)), 1)
-        self.assertEqual(list(Receipt.objects.values_list('pk', flat=True)),
-                         [kept.pk])
+        self.assertFalse(Receipt.objects.exists())
 
     def test_admin_page_accepts_email(self):
         User.objects.create_superuser(
@@ -196,3 +197,26 @@ class RetentionTests(TestCase):
             'next': '/admin/'})
         self.assertRedirects(response, '/admin/',
                              fetch_redirect_response=False)
+
+
+class StaleFormTests(TestCase):
+    """A stale form lands on a usable page, never Django's bare 403."""
+
+    def setUp(self):
+        from django.test import Client
+        self.client = Client(enforce_csrf_checks=True)
+
+    def test_signed_in_user_goes_to_the_app(self):
+        user = User.objects.create_user('a', email='a@example.com',
+                                        password='x')
+        self.client.force_login(user)
+        response = self.client.post('/auth/login/', {'username': 'a',
+                                                      'password': 'x'})
+        self.assertRedirects(response, '/', fetch_redirect_response=False)
+
+    def test_signed_out_user_gets_a_fresh_login_page(self):
+        response = self.client.post('/auth/login/', {'username': 'a',
+                                                      'password': 'x'})
+        self.assertRedirects(response, '/auth/login/',
+                             fetch_redirect_response=False)
+        self.assertTrue(self.client.session['form_expired'])

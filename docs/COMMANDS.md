@@ -90,8 +90,9 @@ Uploaded files: `ls -lh ~/siresoft-scan-tool/media/receipts/`
 ## 24-hour receipt deletion
 
 Every receipt is deleted 24 hours after its own upload - from History, from
-PostgreSQL (so from Django Administration too) and its file from disk. Admin
-receipts are kept. It runs every minute by itself; to run it by hand:
+PostgreSQL (so from Django Administration too) and its file from disk. This
+applies to every receipt, the admin's included; accounts are kept. It runs
+every minute by itself; to run it by hand:
 
     ./venv/bin/python manage.py purge_expired_receipts
 

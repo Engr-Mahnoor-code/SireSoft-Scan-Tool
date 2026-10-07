@@ -21,6 +21,8 @@ USE_X_FORWARDED_HOST = True
 # Allow CSRF for ngrok tunnels (needed for POST requests)
 CSRF_TRUSTED_ORIGINS = os.environ.get(
     'CSRF_TRUSTED_ORIGINS', 'http://localhost').split(',')
+# A stale form (back button, resubmission) lands on a fresh page, not a 403.
+CSRF_FAILURE_VIEW = 'apps.accounts.views.csrf_failure'
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -107,8 +109,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Lets /admin/ take admin@siresoft.com as well as the username `admin`.
 AUTHENTICATION_BACKENDS = ['apps.accounts.backends.EmailOrUsernameBackend']
 
-# Every receipt is deleted this many hours after it was uploaded - each on
-# its own clock. Receipts owned by staff (the admin) are kept.
+# Every receipt - the admin's included - is deleted this many hours after it
+# was uploaded, each on its own clock. Accounts are never deleted.
 USER_DATA_TTL_HOURS = float(os.environ.get('USER_DATA_TTL_HOURS', '24'))
 
 LOGIN_URL = '/auth/login/'
