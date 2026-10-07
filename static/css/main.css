@@ -990,8 +990,8 @@ body.page-login {
 }
 
 .ttl-ring {
-    width: 34px;
-    height: 34px;
+    width: 36px;
+    height: 36px;
     flex-shrink: 0;
     transform: rotate(-90deg);
 }
@@ -1002,7 +1002,21 @@ body.page-login {
 }
 
 .ttl-track {
-    stroke: rgba(255, 255, 255, 0.1);
+    stroke: var(--ttl-color);
+    stroke-opacity: 0.16;
+}
+
+.ttl-knob {
+    fill: #fff;
+    stroke: var(--ttl-color);
+    stroke-width: 1.6;
+    filter: drop-shadow(0 0 2.5px var(--ttl-color));
+    transition: cx 1s linear, cy 1s linear;
+}
+
+.ttl.ttl-kept .ttl-track {
+    stroke: rgba(255, 255, 255, 0.12);
+    stroke-opacity: 1;
 }
 
 .ttl-arc {
@@ -1016,7 +1030,7 @@ body.page-login {
 
 /* A short bright sweep circling the ring, so the timer reads as live. */
 .ttl-spin {
-    stroke: rgba(255, 255, 255, 0.55);
+    stroke: rgba(255, 255, 255, 0.35);
     stroke-linecap: round;
     stroke-dasharray: 6 94;
     transform-origin: 20px 20px;
