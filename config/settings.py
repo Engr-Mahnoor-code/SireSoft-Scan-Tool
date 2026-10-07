@@ -46,7 +46,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'apps.accounts.middleware.PurgeExpiredUsersMiddleware',
+    'apps.accounts.middleware.PurgeExpiredReceiptsMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -107,8 +107,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Lets /admin/ take admin@siresoft.com as well as the username `admin`.
 AUTHENTICATION_BACKENDS = ['apps.accounts.backends.EmailOrUsernameBackend']
 
-# Every ordinary user is deleted, with all their receipts, this many hours
-# after they sign up - each on their own clock. Staff are never deleted.
+# Every receipt is deleted this many hours after it was uploaded - each on
+# its own clock. Receipts owned by staff (the admin) are kept.
 USER_DATA_TTL_HOURS = float(os.environ.get('USER_DATA_TTL_HOURS', '24'))
 
 LOGIN_URL = '/auth/login/'

@@ -1,20 +1,19 @@
 """
-Delete every ordinary user, and all their receipts, a set time after sign-up.
+Delete every receipt a set time after it was uploaded.
 
-Each user has their own clock: someone who signs up at 15:00 is removed at
-15:00 the next day, someone who signs up at 09:30 at 09:30 the next day. The
-receipt rows go with the account (ForeignKey CASCADE), and the receipt
-model's post_delete handler removes their uploaded and corrected files from
-disk, so nothing of theirs is left in PostgreSQL or under media/.
+Each receipt has its own clock: one uploaded at 15:00 is removed at 15:00 the
+next day, one uploaded at 16:00 at 16:00 the next day. The row leaves
+PostgreSQL (so History and Django Administration no longer show it) and the
+receipt model's post_delete handler removes its uploaded and corrected files
+from disk. User accounts are kept.
 
-Staff and superusers are never touched: the admin account must survive.
+Receipts owned by staff (the admin) are never touched.
 """
 
 import logging
 from datetime import timedelta
 
 from django.conf import settings
-from django.contrib.auth.models import User
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
@@ -24,31 +23,37 @@ def data_lifetime():
     return timedelta(hours=settings.USER_DATA_TTL_HOURS)
 
 
-def expires_at(user):
-    """When `user` and their receipts will be deleted, or None if never."""
-    if user.is_staff or user.is_superuser:
+def is_exempt(user):
+    return user.is_staff or user.is_superuser
+
+
+def expires_at(receipt):
+    """When `receipt` will be deleted, or None if it is kept."""
+    if is_exempt(receipt.user):
         return None
-    return user.date_joined + data_lifetime()
+    return receipt.created_at + data_lifetime()
 
 
-def expired_users(now=None):
+def expired_receipts(now=None):
+    from apps.receipts.models import Receipt
     cutoff = (now or timezone.now()) - data_lifetime()
-    return User.objects.filter(
-        is_staff=False, is_superuser=False, date_joined__lte=cutoff)
+    return Receipt.objects.filter(
+        user__is_staff=False, user__is_superuser=False,
+        created_at__lte=cutoff)
 
 
-def purge_expired_users(now=None):
-    """Delete expired users with their receipts. Returns how many users went."""
+def purge_expired_receipts(now=None):
+    """Delete receipts past their lifetime. Returns how many went."""
     deleted = 0
-    for user in expired_users(now):
+    for receipt in expired_receipts(now):
         # One at a time, so a single failure doesn't keep everyone else's
         # data past its deadline.
         try:
-            user.delete()
+            receipt.delete()
             deleted += 1
-            logger.info('Deleted expired user %s and their receipts.',
-                        user.username)
         except Exception:  # noqa: BLE001
-            logger.exception('Could not delete expired user %s.',
-                             user.username)
+            logger.exception('Could not delete expired receipt #%s.',
+                             receipt.pk)
+    if deleted:
+        logger.info('Deleted %d expired receipt(s).', deleted)
     return deleted

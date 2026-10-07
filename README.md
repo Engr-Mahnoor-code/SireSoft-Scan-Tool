@@ -27,17 +27,20 @@ Project ke 3 hisse:
 
 ## 24 ghante baad data khud delete
 
-Har aam user ka apna 24 ghante ka clock hai, jo **uske sign-up ke waqt se** shuru hota hai:
+Har receipt ka apna 24 ghante ka clock hai, jo **us receipt ke upload ke waqt se** shuru hota hai:
 
-- User 3:00 baje sign-up kare → agle din 3:00 baje uska account **aur** uski
-  saari receipts (database rows + upload ki hui files) delete.
-- Doosra user 9:30 baje aaye → uska clock 9:30 se, agle din 9:30 baje delete.
-- **Admin kabhi delete nahin hota.**
+- Receipt 3:00 baje upload hui → agle din 3:00 baje delete (History,
+  PostgreSQL / Django Administration aur server par file, sab se).
+- Usi user ne 4:00 baje doosri receipt upload ki → woh agle din 4:00 baje delete.
+- User ka **account delete nahin hota**, sirf receipts.
+- **Admin ki receipts kabhi delete nahin hotin.**
+
+History mein har receipt ke saath **Auto-Delete** column mein live countdown
+chalta hai (hara → 3 ghante se kam par peela → 1 ghante se kam par laal).
 
 Yeh har minute khud chalta hai (worker mein bhi aur website mein bhi), koi cron
-nahin chahiye. User ko History page par likha nazar aata hai ke uska data kab
-delete hoga. Ghante badalne hon to `.env` mein `USER_DATA_TTL_HOURS=24` badlen.
-Haath se chalana ho: `python manage.py purge_expired_users`
+nahin chahiye. Ghante badalne hon to `.env` mein `USER_DATA_TTL_HOURS=24` badlen.
+Haath se chalana ho: `python manage.py purge_expired_receipts`
 
 ## Login
 

@@ -38,13 +38,9 @@ def history(request):
                 .exclude(status=Receipt.STATUS_FAILED)
                 .select_related('user'))
     for receipt in receipts:
-        # Receipts go with their owner's account, so each one's countdown is
-        # the owner's. None for staff-owned receipts: those are kept.
-        receipt.delete_at = expires_at(receipt.user)
-    return render(request, 'receipts/history.html', {
-        'receipts': receipts,
-        'expires_at': expires_at(request.user),
-    })
+        # Each receipt's own deadline; None for staff-owned ones, which stay.
+        receipt.delete_at = expires_at(receipt)
+    return render(request, 'receipts/history.html', {'receipts': receipts})
 
 
 @login_required

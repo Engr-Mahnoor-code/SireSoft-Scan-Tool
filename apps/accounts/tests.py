@@ -146,49 +146,47 @@ class EnsureAdminTests(TestCase):
 
 
 class RetentionTests(TestCase):
-    """Users and their receipts go 24 hours after each one's own sign-up."""
+    """Each receipt goes 24 hours after its own upload; accounts stay."""
 
-    def make_user(self, name, joined, **extra):
-        user = User.objects.create_user(name, email='%s@example.com' % name,
-                                        password='x', **extra)
-        User.objects.filter(pk=user.pk).update(date_joined=joined)
-        return user
-
-    def make_receipt(self, user):
+    def make_receipt(self, user, uploaded):
         from django.core.files.base import ContentFile
         from apps.receipts.models import Receipt
         receipt = Receipt(user=user)
         receipt.file.save('t.png', ContentFile(b'x'), save=True)
+        Receipt.objects.filter(pk=receipt.pk).update(created_at=uploaded)
+        receipt.refresh_from_db()
         return receipt
 
-    def test_each_user_expires_on_their_own_clock(self):
+    def test_each_receipt_expires_on_its_own_clock(self):
+        import os
         from datetime import timedelta
         from django.utils import timezone
-        from apps.accounts.retention import purge_expired_users
+        from apps.accounts.retention import expires_at, purge_expired_receipts
         from apps.receipts.models import Receipt
 
         now = timezone.now()
-        old = self.make_user('old', now - timedelta(hours=24, minutes=1))
-        new = self.make_user('new', now - timedelta(hours=23))
-        admin = self.make_user('boss', now - timedelta(days=30),
-                               is_staff=True, is_superuser=True)
-        old_receipt = self.make_receipt(old)
-        path = old_receipt.file.path
-        self.make_receipt(new)
-        self.make_receipt(admin)
+        user = User.objects.create_user('u', email='u@example.com',
+                                        password='x')
+        admin = User.objects.create_superuser('boss', password='x')
+        at_three = self.make_receipt(user, now - timedelta(hours=24, minutes=1))
+        at_four = self.make_receipt(user, now - timedelta(hours=23))
+        kept = self.make_receipt(admin, now - timedelta(days=30))
+        path = at_three.file.path
 
-        self.assertEqual(purge_expired_users(now), 1)
-        self.assertFalse(User.objects.filter(pk=old.pk).exists())
-        self.assertFalse(Receipt.objects.filter(user_id=old.pk).exists())
-        import os
+        self.assertEqual(expires_at(at_four), at_four.created_at
+                         + timedelta(hours=24))
+        self.assertIsNone(expires_at(kept))
+
+        self.assertEqual(purge_expired_receipts(now), 1)
+        self.assertFalse(Receipt.objects.filter(pk=at_three.pk).exists())
         self.assertFalse(os.path.exists(path))
-        self.assertTrue(Receipt.objects.filter(user=new).exists())
-        self.assertTrue(Receipt.objects.filter(user=admin).exists())
+        self.assertTrue(Receipt.objects.filter(pk=at_four.pk).exists())
+        self.assertTrue(User.objects.filter(pk=user.pk).exists())
 
-        # An hour later the second user's 24 hours are up too.
-        self.assertEqual(purge_expired_users(now + timedelta(hours=1)), 1)
-        self.assertEqual(list(User.objects.values_list('username', flat=True)),
-                         ['boss'])
+        # An hour later the second receipt's 24 hours are up too.
+        self.assertEqual(purge_expired_receipts(now + timedelta(hours=1)), 1)
+        self.assertEqual(list(Receipt.objects.values_list('pk', flat=True)),
+                         [kept.pk])
 
     def test_admin_page_accepts_email(self):
         User.objects.create_superuser(

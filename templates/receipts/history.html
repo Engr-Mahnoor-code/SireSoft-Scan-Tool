@@ -6,12 +6,6 @@ SireSoft Scan Tool{% endblock %} {% block content %}
     <p class="page-subtitle">
       {% if user.is_staff %}All receipts scanned by every user.{% else %}All receipts scanned by your account.{% endif %}
     </p>
-    {% if expires_at %}
-    <p class="page-subtitle">
-      Your account and all its receipts will be deleted automatically on
-      {{ expires_at|date:"j M Y, H:i" }} (24 hours after sign-up).
-    </p>
-    {% endif %}
   </div>
   <a href="{% url 'receipts:index' %}" class="btn">+ New Scan</a>
 </div>
@@ -29,7 +23,7 @@ SireSoft Scan Tool{% endblock %} {% block content %}
           <th>Date</th>
           <th>Total</th>
           <th>Scanned On</th>
-          <th>Auto-Delete</th>
+          <th title="Each receipt is deleted automatically 24 hours after upload">Auto-Delete</th>
           <th></th>
         </tr>
       </thead>
@@ -61,7 +55,7 @@ SireSoft Scan Tool{% endblock %} {% block content %}
               <span class="ttl-text">{{ receipt.delete_at|timeuntil }} left</span>
             </span>
             {% else %}
-            <span class="ttl-badge ttl-kept" title="Admin receipts are never deleted automatically">
+            <span class="ttl-badge ttl-kept" title="Admin receipts are not deleted automatically">
               <span class="ttl-dot"></span><span class="ttl-text">Kept</span>
             </span>
             {% endif %}
