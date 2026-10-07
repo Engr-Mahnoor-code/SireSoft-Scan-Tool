@@ -55,32 +55,26 @@ Server par app restart hone par yeh khud chal jaata hai.
 
 ## Links (URLs)
 
-Neeche `<BASE>` ki jagah apna address lagayen:
-
-| Jagah | `<BASE>` |
-|---|---|
-| Apne laptop par (`python manage.py runserver`) | `http://127.0.0.1:9000` |
-| Server, VPN on | `http://10.0.2.2:9000` |
-| Server, VPN off | ngrok address (`.env` mein `NGROK_URL`) |
+Server ka address: **http://10.0.2.2:9000** (VPN on hona chahiye).
 
 | Kya kholna hai | Link |
 |---|---|
-| App login | `<BASE>/auth/login/` |
-| Receipt upload | `<BASE>/` |
-| History | `<BASE>/history/` |
-| **Django Administration** | `<BASE>/admin/` |
-| Database mein saari receipts | `<BASE>/admin/receipts/receipt/` |
-| Database mein saare users | `<BASE>/admin/auth/user/` |
+| App login | http://10.0.2.2:9000/auth/login/ |
+| Receipt upload | http://10.0.2.2:9000/ |
+| History | http://10.0.2.2:9000/history/ |
+| **Django Administration** | http://10.0.2.2:9000/admin/ |
+| Database mein saari receipts | http://10.0.2.2:9000/admin/receipts/receipt/ |
+| Database mein saare users | http://10.0.2.2:9000/admin/auth/user/ |
 
-Data save hua ya nahin dekhne ke liye: `<BASE>/admin/` kholen → `admin` aur
-admin password se login → **Receipts** par click.
+Data save hua ya nahin dekhne ke liye: http://10.0.2.2:9000/admin/ kholen →
+`admin` aur admin password se login → **Receipts** par click.
 
 ## Apne laptop par chalana
 
     venv\Scripts\activate
     python manage.py migrate
     python manage.py ensure_admin
-    python manage.py runserver          # website, port 9000
+    python manage.py runserver          # website
     python manage.py process_receipts   # doosri terminal mein: worker
 
 Ollama chal raha hona chahiye aur model pulled: `ollama pull qwen2.5vl:3b`
