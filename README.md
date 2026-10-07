@@ -1,5 +1,10 @@
 # SireSoft Scan Tool
 
+**Poori documentation (diagrams ke saath):**
+[English PDF](docs/SireSoft-Scan-Tool-Documentation-English.pdf) ·
+[Roman Urdu PDF](docs/SireSoft-Scan-Tool-Documentation-RomanUrdu.pdf) ·
+server commands: [docs/COMMANDS.md](docs/COMMANDS.md)
+
 ## Yeh project kya hai?
 
 Ek website jahan user **receipt / bill ki photo ya PDF upload** karta hai, aur
