@@ -650,3 +650,34 @@ class RescanTests(TestCase):
         self.assertEqual(self.receipt.status, Receipt.STATUS_SUCCESS)
         self.assertEqual(self.receipt.vendor_name, 'Old')
         self.assertEqual(self.receipt.error_message, 'Could not read it.')
+
+
+class RenumberReceiptsTests(TestCase):
+    """Remaining receipts become 1, 2, 3 by upload time; uploads continue."""
+
+    def test_renumbers_oldest_first_and_resets_the_counter(self):
+        from datetime import timedelta
+        from io import StringIO
+        from django.core.management import call_command
+        from django.utils import timezone
+
+        user = User.objects.create_user('r', password='x')
+        now = timezone.now()
+        # Uploaded 1, 3 and 2 hours ago, then a gap left by a deleted one.
+        for hours_ago in (1, 3, 2):
+            receipt = Receipt.objects.create(user=user, file='receipts/x.png',
+                                             vendor_name='%dh' % hours_ago)
+            Receipt.objects.filter(pk=receipt.pk).update(
+                created_at=now - timedelta(hours=hours_ago))
+        Receipt.objects.create(user=user, file='receipts/z.png').delete()
+        Receipt.objects.create(user=user, file='receipts/z.png',
+                               vendor_name='0h')
+
+        call_command('renumber_receipts', stdout=StringIO())
+
+        self.assertEqual(
+            list(Receipt.objects.order_by('id')
+                 .values_list('id', 'vendor_name')),
+            [(1, '3h'), (2, '2h'), (3, '1h'), (4, '0h')])
+        new = Receipt.objects.create(user=user, file='receipts/y.png')
+        self.assertEqual(new.pk, 5)

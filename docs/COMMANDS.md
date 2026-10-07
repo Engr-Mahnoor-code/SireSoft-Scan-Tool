@@ -96,6 +96,13 @@ every minute by itself; to run it by hand:
 
     ./venv/bin/python manage.py purge_expired_receipts
 
+To renumber the remaining receipts 1, 2, 3 ... by upload time (the next
+upload then gets the next number), stop the worker first:
+
+    sudo systemctl stop siresoft-scan-tool-worker
+    ./venv/bin/python manage.py renumber_receipts
+    sudo systemctl start siresoft-scan-tool-worker
+
 ## Network checks
 
     sudo ss -tlnp | grep :9000
