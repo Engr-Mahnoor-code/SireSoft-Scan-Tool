@@ -967,53 +967,105 @@ body.page-login {
 }
 
 /* ---- Auto-delete countdown ---- */
-.ttl-badge {
+.ttl {
+    --ttl-color: #22c55e;
     display: inline-flex;
     align-items: center;
-    gap: 0.45rem;
-    padding: 0.3rem 0.7rem;
+    gap: 0.6rem;
+    padding: 0.35rem 0.85rem 0.35rem 0.4rem;
     border-radius: 999px;
-    border: 1px solid rgba(34, 197, 94, 0.35);
-    background: rgba(34, 197, 94, 0.1);
-    color: #86efac;
-    font-size: 0.78rem;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-}
-
-.ttl-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: currentColor;
-    flex-shrink: 0;
-}
-
-.ttl-badge.ttl-warn {
-    border-color: rgba(245, 158, 11, 0.4);
-    background: rgba(245, 158, 11, 0.12);
-    color: #fcd34d;
-}
-
-.ttl-badge.ttl-urgent {
-    border-color: rgba(239, 68, 68, 0.45);
-    background: rgba(239, 68, 68, 0.12);
-    color: #fca5a5;
-}
-
-.ttl-badge.ttl-urgent .ttl-dot {
-    animation: ttl-pulse 1.2s ease-in-out infinite;
-}
-
-.ttl-badge.ttl-kept {
-    border-color: var(--border);
     background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    white-space: nowrap;
+    transition: border-color var(--transition), background var(--transition);
+}
+
+.ttl.ttl-warn { --ttl-color: #f59e0b; }
+.ttl.ttl-urgent,
+.ttl.ttl-done { --ttl-color: #ef4444; }
+
+.ttl.ttl-urgent {
+    border-color: rgba(239, 68, 68, 0.35);
+    background: rgba(239, 68, 68, 0.08);
+}
+
+.ttl-ring {
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+    transform: rotate(-90deg);
+}
+
+.ttl-ring circle {
+    fill: none;
+    stroke-width: 3.5;
+}
+
+.ttl-track {
+    stroke: rgba(255, 255, 255, 0.1);
+}
+
+.ttl-arc {
+    stroke: var(--ttl-color);
+    stroke-linecap: round;
+    stroke-dasharray: 100;
+    stroke-dashoffset: 0;
+    transition: stroke-dashoffset 1s linear, stroke 0.4s ease;
+    filter: drop-shadow(0 0 3px var(--ttl-color));
+}
+
+/* A short bright sweep circling the ring, so the timer reads as live. */
+.ttl-spin {
+    stroke: rgba(255, 255, 255, 0.55);
+    stroke-linecap: round;
+    stroke-dasharray: 6 94;
+    transform-origin: 20px 20px;
+    animation: ttl-rotate 2.4s linear infinite;
+}
+
+.ttl.ttl-urgent .ttl-spin { animation-duration: 1.2s; }
+.ttl.ttl-done .ttl-spin { display: none; }
+
+.ttl-body {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.15;
+}
+
+.ttl-time {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--ttl-color);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+}
+
+.ttl-label {
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
     color: var(--text-muted);
 }
 
-@keyframes ttl-pulse {
-    50% { opacity: 0.3; }
+.ttl.ttl-kept { --ttl-color: var(--text-muted); }
+
+.ttl-lock {
+    fill: none;
+    stroke: var(--text-muted);
+    stroke-width: 1.8;
+    stroke-linejoin: round;
+    transform: rotate(90deg);
+    transform-origin: 20px 20px;
+}
+
+@keyframes ttl-rotate {
+    to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ttl-spin { animation: none; display: none; }
+    .ttl-arc { transition: none; }
 }
 
 /* ---- Bill Summary ---- */
