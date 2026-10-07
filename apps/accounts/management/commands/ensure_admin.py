@@ -2,6 +2,7 @@ import os
 
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand, CommandError
+from django.db.models import Q
 
 
 class Command(BaseCommand):
@@ -12,6 +13,10 @@ class Command(BaseCommand):
     ADMIN_EMAIL, ADMIN_PASSWORD), never in the repository. Running this makes
     the database match them: the account exists, can sign in to the app by
     email and to /admin/ by email or username, and has full rights. Safe to run again.
+
+    It is also the only admin: any other account holding staff or superuser
+    rights loses them and becomes an ordinary user. The account itself, its
+    email and password stay; it simply sees only its own receipts.
     """
 
     help = 'Create or update the admin account from ADMIN_* settings in .env.'
@@ -43,3 +48,12 @@ class Command(BaseCommand):
             '%s admin "%s" (%s). Sign in to the app and to /admin/ with '
             'either the email or the username.'
             % ('Created' if created else 'Updated', username, email)))
+
+        others = (User.objects.filter(Q(is_staff=True) | Q(is_superuser=True))
+                  .exclude(pk=user.pk))
+        names = list(others.values_list('username', flat=True))
+        if names:
+            others.update(is_staff=False, is_superuser=False)
+            self.stdout.write(
+                'Removed admin rights from: %s. They are ordinary users now.'
+                % ', '.join(names))

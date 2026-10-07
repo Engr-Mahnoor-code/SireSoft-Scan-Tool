@@ -132,6 +132,18 @@ class EnsureAdminTests(TestCase):
         self.assertTrue(user.check_password('Pakistan12345'))
         self.assertEqual(User.objects.count(), 1)
 
+    def test_admin_is_the_only_admin(self):
+        other = User.objects.create_superuser(
+            'siresoft', email='admin@gmail.com', password='x')
+        self.run_command(ADMIN_USERNAME='admin', ADMIN_EMAIL='admin@siresoft.com',
+                         ADMIN_PASSWORD='Pakistan12345')
+        other.refresh_from_db()
+        self.assertFalse(other.is_staff or other.is_superuser)
+        self.assertTrue(other.check_password('x'))
+        self.assertEqual(
+            list(User.objects.filter(is_staff=True)
+                 .values_list('username', flat=True)), ['admin'])
+
     def test_refuses_without_a_password(self):
         from django.core.management.base import CommandError
         with self.assertRaises(CommandError):
