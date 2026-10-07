@@ -16,7 +16,7 @@ def default_runserver_address(argv):
 
     Django defaults to 127.0.0.1:8000. Both halves are wrong here:
 
-    - The port is 9001 everywhere else - gunicorn, the systemd unit, the
+    - The port is 9000 everywhere else - gunicorn, the systemd unit, the
       tunnel, both guides. Developing against 8000 means the address you use
       while working is not the address you were told to use.
     - 127.0.0.1 means "only this machine". Run that on a server and it starts
@@ -24,7 +24,7 @@ def default_runserver_address(argv):
       as a broken app rather than a wrong bind address.
 
     So a bare `runserver` becomes 0.0.0.0:APP_PORT, reachable both as
-    127.0.0.1:9001 on the machine itself and by its LAN or VPN address from
+    127.0.0.1:9000 on the machine itself and by its LAN or VPN address from
     elsewhere. Set RUNSERVER_HOST=127.0.0.1 to keep it private instead - worth
     doing on a laptop on untrusted wifi, since 0.0.0.0 offers the development
     server to everyone on that network.
@@ -40,7 +40,7 @@ def default_runserver_address(argv):
         return argv
 
     host = os.environ.get('RUNSERVER_HOST', '0.0.0.0')
-    port = os.environ.get('APP_PORT', '9001')
+    port = os.environ.get('APP_PORT', '9000')
     return argv + ['%s:%s' % (host, port)]
 
 

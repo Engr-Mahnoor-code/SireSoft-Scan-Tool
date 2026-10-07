@@ -1,12 +1,12 @@
-# Deploying siresoft-receiptiq on lsnet (10.0.2.2)
+# Deploying siresoft-scan-tool on lsnet (10.0.2.2)
 
 This project installs as its own deployment, separate from anything already on
 the host. Nothing here is shared with an older install — its own folder, venv,
 database, port and systemd units.
 
-    Project dir:   /home/siresoft/siresoft-receiptiq
-    Service name:  siresoft-receiptiq
-    Port:          9001
+    Project dir:   /home/siresoft/siresoft-scan-tool
+    Service name:  siresoft-scan-tool
+    Port:          9000
     Database:      siresoft_receiptiq_db
 
 The wrapper scripts work out the project directory from their own location, so
@@ -15,14 +15,14 @@ files name a path.
 
 | Service | Wrapper | Purpose |
 |---|---|---|
-| `siresoft-receiptiq` | `run-app.sh` | Django via gunicorn on `APP_PORT` |
-| `siresoft-receiptiq-ngrok` | `run-ngrok.sh` | Stable public URL, works without the VPN |
-| `siresoft-receiptiq-tunnel` | `run-cloudflared.sh` | Cloudflare backup route |
-| `siresoft-receiptiq-worker` | `run-worker.sh` | Reads receipts with the local Ollama model |
+| `siresoft-scan-tool` | `run-app.sh` | Django via gunicorn on `APP_PORT` |
+| `siresoft-scan-tool-ngrok` | `run-ngrok.sh` | Stable public URL, works without the VPN |
+| `siresoft-scan-tool-tunnel` | `run-cloudflared.sh` | Cloudflare backup route |
+| `siresoft-scan-tool-worker` | `run-worker.sh` | Reads receipts with the local Ollama model |
 
-Settings live in one place only — `/home/siresoft/siresoft-receiptiq/.env`:
+Settings live in one place only — `/home/siresoft/siresoft-scan-tool/.env`:
 
-    APP_PORT=9001
+    APP_PORT=9000
     GUNICORN_WORKERS=3
     GUNICORN_TIMEOUT=600
     NGROK_URL=https://<your-reserved-domain>.ngrok-free.dev
@@ -39,14 +39,14 @@ access tokens, and keep it somewhere safe -- GitHub shows it only once.
 
     ssh siresoft@10.0.2.2
 
-    git clone https://<TOKEN>@github.com/Engr-Mahnoor-code/siresoft-receiptiq.git ~/siresoft-receiptiq
-    cd ~/siresoft-receiptiq
+    git clone https://<TOKEN>@github.com/Engr-Mahnoor-code/siresoft-receiptiq.git ~/siresoft-scan-tool
+    cd ~/siresoft-scan-tool
 
 Embedding the token in the URL writes it to `.git/config` in plain text. To keep
 it out of there, clone without it and let a credential helper cache it instead:
 
-    git clone https://github.com/Engr-Mahnoor-code/siresoft-receiptiq.git ~/siresoft-receiptiq
-    cd ~/siresoft-receiptiq
+    git clone https://github.com/Engr-Mahnoor-code/siresoft-receiptiq.git ~/siresoft-scan-tool
+    cd ~/siresoft-scan-tool
     git config credential.helper store    # paste the token as the password once
 
 This clones into its own folder. An older `~/receiptiq` install on the same host
@@ -62,7 +62,7 @@ Create its own database (the older install keeps its own):
 Then write `.env` from the template and fill in real values:
 
     cp .env.example .env
-    nano .env          # SECRET_KEY, DB_*, OLLAMA_MODEL, APP_PORT=9001
+    nano .env          # SECRET_KEY, DB_*, OLLAMA_MODEL, APP_PORT=9000
     chmod 600 .env
 
 `.env` is gitignored and is never overwritten by `git pull`. Keep a copy
@@ -70,7 +70,7 @@ somewhere safe — it is the only thing a fresh clone cannot recreate.
 
     ./venv/bin/python manage.py migrate
     ./venv/bin/python manage.py collectstatic --noinput
-    ./venv/bin/python manage.py createsuperuser
+    ./venv/bin/python manage.py ensure_admin     # admin from ADMIN_* in .env
 
 ## The local model (Ollama)
 
@@ -148,47 +148,47 @@ The wrapper runs as `siresoft`, who owns the file, so sourcing `.env` succeeds.
 
 ## Install the services
 
-    chmod +x ~/siresoft-receiptiq/deploy/*.sh
+    chmod +x ~/siresoft-scan-tool/deploy/*.sh
 
     # SELinux: scripts under /home are user_home_t, which systemd may not
     # execute. Relabel them as bin_t or every start fails with status=203/EXEC.
-    sudo chcon -t bin_t ~/siresoft-receiptiq/deploy/*.sh
+    sudo chcon -t bin_t ~/siresoft-scan-tool/deploy/*.sh
 
-    sudo cp ~/siresoft-receiptiq/deploy/*.service /etc/systemd/system/
+    sudo cp ~/siresoft-scan-tool/deploy/*.service /etc/systemd/system/
     sudo systemctl daemon-reload
-    sudo systemctl enable --now siresoft-receiptiq siresoft-receiptiq-worker
+    sudo systemctl enable --now siresoft-scan-tool siresoft-scan-tool-worker
 
 Open the port:
 
-    sudo firewall-cmd --permanent --add-port=9001/tcp && sudo firewall-cmd --reload
+    sudo firewall-cmd --permanent --add-port=9000/tcp && sudo firewall-cmd --reload
 
 To survive a full filesystem relabel, make the SELinux context permanent:
 
-    sudo semanage fcontext -a -t bin_t "/home/siresoft/siresoft-receiptiq/deploy/.*\.sh"
-    sudo restorecon -v ~/siresoft-receiptiq/deploy/*.sh
+    sudo semanage fcontext -a -t bin_t "/home/siresoft/siresoft-scan-tool/deploy/.*\.sh"
+    sudo restorecon -v ~/siresoft-scan-tool/deploy/*.sh
 
 ## Public access (optional)
 
 Start these only if this project needs a public URL:
 
-    sudo systemctl enable --now siresoft-receiptiq-ngrok siresoft-receiptiq-tunnel
+    sudo systemctl enable --now siresoft-scan-tool-ngrok siresoft-scan-tool-tunnel
 
 A free ngrok account allows **one** agent session at a time. If an older ngrok
 service is already running on this host, this one will keep restarting until
-that one is stopped. Check with `journalctl -u siresoft-receiptiq-ngrok -n 30`.
+that one is stopped. Check with `journalctl -u siresoft-scan-tool-ngrok -n 30`.
 
 Whatever public hostname you use must be listed in `ALLOWED_HOSTS`, and its
 `https://` origin in `CSRF_TRUSTED_ORIGINS`, in `.env`.
 
 ## Updating after a code change
 
-    cd ~/siresoft-receiptiq
+    cd ~/siresoft-scan-tool
     git pull
     sudo restorecon -v deploy/*.sh                 # see below - not optional
     ./venv/bin/pip install -r requirements.txt     # only if requirements changed
     ./venv/bin/python manage.py migrate            # only if models changed
     ./venv/bin/python manage.py collectstatic --noinput
-    sudo systemctl restart siresoft-receiptiq siresoft-receiptiq-worker
+    sudo systemctl restart siresoft-scan-tool siresoft-scan-tool-worker
 
 `restorecon` is not optional on this host. `git pull` writes a replacement file
 rather than editing in place, so anything it touches comes back labelled
@@ -207,26 +207,26 @@ and your changes simply will not appear in the browser.
 
 ## Health check
 
-    systemctl is-active siresoft-receiptiq siresoft-receiptiq-worker
-    curl -I http://10.0.2.2:9001/
-    journalctl -u siresoft-receiptiq -n 50 --no-pager
+    systemctl is-active siresoft-scan-tool siresoft-scan-tool-worker
+    curl -I http://10.0.2.2:9000/
+    journalctl -u siresoft-scan-tool -n 50 --no-pager
 
 The worker log is where a stuck receipt explains itself — it names the
 model, how long each receipt took, and why any of them failed:
 
-    journalctl -u siresoft-receiptiq-worker -f
+    journalctl -u siresoft-scan-tool-worker -f
 
 To run it by hand instead, stop the service first so the two do not
 compete for the queue:
 
-    sudo systemctl stop siresoft-receiptiq-worker
+    sudo systemctl stop siresoft-scan-tool-worker
     ./venv/bin/python manage.py process_receipts --once
 
 ## Changing the port
 
 Edit `APP_PORT` in `.env`, then:
 
-    sudo systemctl restart siresoft-receiptiq siresoft-receiptiq-ngrok siresoft-receiptiq-tunnel
+    sudo systemctl restart siresoft-scan-tool siresoft-scan-tool-ngrok siresoft-scan-tool-tunnel
     sudo firewall-cmd --permanent --add-port=<new-port>/tcp && sudo firewall-cmd --reload
 
 ## Cloudflare URL
@@ -234,4 +234,4 @@ Edit `APP_PORT` in `.env`, then:
 The Cloudflare quick tunnel gets a new hostname every restart. Read the current
 one with:
 
-    journalctl -u siresoft-receiptiq-tunnel | grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' | tail -1
+    journalctl -u siresoft-scan-tool-tunnel | grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' | tail -1

@@ -1,5 +1,5 @@
 [Unit]
-Description=SireSoft ReceiptIQ receipt extraction worker (Ollama)
+Description=SireSoft Scan Tool receipt extraction worker (Ollama)
 # The worker survives Ollama being down, but starting after it avoids a
 # pointless round of retries on every boot.
 After=network-online.target ollama.service
@@ -9,8 +9,8 @@ Wants=network-online.target
 Type=simple
 User=siresoft
 Group=siresoft
-WorkingDirectory=/home/siresoft/siresoft-receiptiq
-ExecStart=/home/siresoft/siresoft-receiptiq/deploy/run-worker.sh
+WorkingDirectory=/home/siresoft/siresoft-scan-tool
+ExecStart=/home/siresoft/siresoft-scan-tool/deploy/run-worker.sh
 # The worker finishes the receipt in hand on SIGTERM; give a slow model room
 # to land rather than leaving the row stuck in "processing".
 KillSignal=SIGTERM

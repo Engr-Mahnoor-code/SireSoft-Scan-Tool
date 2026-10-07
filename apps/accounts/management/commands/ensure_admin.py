@@ -11,7 +11,7 @@ class Command(BaseCommand):
     The admin's credentials live in the server's .env (ADMIN_USERNAME,
     ADMIN_EMAIL, ADMIN_PASSWORD), never in the repository. Running this makes
     the database match them: the account exists, can sign in to the app by
-    email and to /admin/ by username, and has full rights. Safe to run again.
+    email and to /admin/ by email or username, and has full rights. Safe to run again.
     """
 
     help = 'Create or update the admin account from ADMIN_* settings in .env.'
@@ -40,6 +40,6 @@ class Command(BaseCommand):
         user.set_password(password)
         user.save()
         self.stdout.write(self.style.SUCCESS(
-            '%s admin "%s" (%s). Sign in to the app with the email, and to '
-            '/admin/ with the username.'
+            '%s admin "%s" (%s). Sign in to the app and to /admin/ with '
+            'either the email or the username.'
             % ('Created' if created else 'Updated', username, email)))

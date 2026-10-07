@@ -1,11 +1,17 @@
 {% extends "base.html" %} {% load static %} {% block title %}Receipt History —
-ReceiptIQ{% endblock %} {% block content %}
+SireSoft Scan Tool{% endblock %} {% block content %}
 <div class="page-header page-header-row">
   <div>
     <h1 class="page-title">Receipt History</h1>
     <p class="page-subtitle">
       {% if user.is_staff %}All receipts scanned by every user.{% else %}All receipts scanned by your account.{% endif %}
     </p>
+    {% if expires_at %}
+    <p class="page-subtitle">
+      Your account and all its receipts will be deleted automatically on
+      {{ expires_at|date:"j M Y, H:i" }} (24 hours after sign-up).
+    </p>
+    {% endif %}
   </div>
   <a href="{% url 'receipts:index' %}" class="btn">+ New Scan</a>
 </div>

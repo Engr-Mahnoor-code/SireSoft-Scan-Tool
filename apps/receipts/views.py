@@ -7,6 +7,9 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.clickjacking import xframe_options_sameorigin
+
+from apps.accounts.retention import expires_at
+
 from .corrected import save_corrected_copy
 from .forms import ReceiptEditForms
 from .models import Receipt
@@ -34,7 +37,10 @@ def history(request):
                         | Q(extracted_data__isnull=False))
                 .exclude(status=Receipt.STATUS_FAILED)
                 .select_related('user'))
-    return render(request, 'receipts/history.html', {'receipts': receipts})
+    return render(request, 'receipts/history.html', {
+        'receipts': receipts,
+        'expires_at': expires_at(request.user),
+    })
 
 
 @login_required

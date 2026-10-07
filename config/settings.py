@@ -1,5 +1,5 @@
 ﻿"""
-Django settings for ReceiptIQ project.
+Django settings for SireSoft Scan Tool project.
 """
 
 import os
@@ -46,6 +46,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'apps.accounts.middleware.PurgeExpiredUsersMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -88,7 +89,8 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 LANGUAGE_CODE = 'en-us'
-TIME_ZONE = 'UTC'
+# Times are stored in UTC; this is only how they are shown.
+TIME_ZONE = os.environ.get('TIME_ZONE', 'Asia/Karachi')
 USE_I18N = True
 USE_TZ = True
 
@@ -101,6 +103,13 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Lets /admin/ take admin@siresoft.com as well as the username `admin`.
+AUTHENTICATION_BACKENDS = ['apps.accounts.backends.EmailOrUsernameBackend']
+
+# Every ordinary user is deleted, with all their receipts, this many hours
+# after they sign up - each on their own clock. Staff are never deleted.
+USER_DATA_TTL_HOURS = float(os.environ.get('USER_DATA_TTL_HOURS', '24'))
 
 LOGIN_URL = '/auth/login/'
 LOGIN_REDIRECT_URL = '/'
@@ -117,7 +126,7 @@ EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') == 'True'
 DEFAULT_FROM_EMAIL = os.environ.get(
-    'DEFAULT_FROM_EMAIL', 'SireSoft ReceiptIQ <no-reply@siresoft.com>')
+    'DEFAULT_FROM_EMAIL', 'SireSoft Scan Tool <no-reply@siresoft.com>')
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [

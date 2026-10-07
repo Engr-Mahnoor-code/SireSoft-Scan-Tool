@@ -143,3 +143,58 @@ class EnsureAdminTests(TestCase):
         with self.assertRaises(CommandError):
             self.run_command(ADMIN_USERNAME='admin', ADMIN_EMAIL='admin@siresoft.com',
                              ADMIN_PASSWORD='Pakistan12345')
+
+
+class RetentionTests(TestCase):
+    """Users and their receipts go 24 hours after each one's own sign-up."""
+
+    def make_user(self, name, joined, **extra):
+        user = User.objects.create_user(name, email='%s@example.com' % name,
+                                        password='x', **extra)
+        User.objects.filter(pk=user.pk).update(date_joined=joined)
+        return user
+
+    def make_receipt(self, user):
+        from django.core.files.base import ContentFile
+        from apps.receipts.models import Receipt
+        receipt = Receipt(user=user)
+        receipt.file.save('t.png', ContentFile(b'x'), save=True)
+        return receipt
+
+    def test_each_user_expires_on_their_own_clock(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        from apps.accounts.retention import purge_expired_users
+        from apps.receipts.models import Receipt
+
+        now = timezone.now()
+        old = self.make_user('old', now - timedelta(hours=24, minutes=1))
+        new = self.make_user('new', now - timedelta(hours=23))
+        admin = self.make_user('boss', now - timedelta(days=30),
+                               is_staff=True, is_superuser=True)
+        old_receipt = self.make_receipt(old)
+        path = old_receipt.file.path
+        self.make_receipt(new)
+        self.make_receipt(admin)
+
+        self.assertEqual(purge_expired_users(now), 1)
+        self.assertFalse(User.objects.filter(pk=old.pk).exists())
+        self.assertFalse(Receipt.objects.filter(user_id=old.pk).exists())
+        import os
+        self.assertFalse(os.path.exists(path))
+        self.assertTrue(Receipt.objects.filter(user=new).exists())
+        self.assertTrue(Receipt.objects.filter(user=admin).exists())
+
+        # An hour later the second user's 24 hours are up too.
+        self.assertEqual(purge_expired_users(now + timedelta(hours=1)), 1)
+        self.assertEqual(list(User.objects.values_list('username', flat=True)),
+                         ['boss'])
+
+    def test_admin_page_accepts_email(self):
+        User.objects.create_superuser(
+            'admin', email='admin@siresoft.com', password='Test-pass-123')
+        response = self.client.post('/admin/login/?next=/admin/', {
+            'username': 'admin@siresoft.com', 'password': 'Test-pass-123',
+            'next': '/admin/'})
+        self.assertRedirects(response, '/admin/',
+                             fetch_redirect_response=False)

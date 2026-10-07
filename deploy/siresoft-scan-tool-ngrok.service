@@ -1,0 +1,15 @@
+[Unit]
+Description=ngrok tunnel for SireSoft Scan Tool
+After=network-online.target siresoft-scan-tool.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=siresoft
+WorkingDirectory=/home/siresoft/siresoft-scan-tool
+ExecStart=/home/siresoft/siresoft-scan-tool/deploy/run-ngrok.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

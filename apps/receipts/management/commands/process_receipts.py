@@ -1,7 +1,7 @@
 """
 Background worker: turns pending receipts into extracted data.
 
-Runs as its own long-lived process (systemd unit siresoft-receiptiq-worker) so
+Runs as its own long-lived process (systemd unit siresoft-scan-tool-worker) so
 that a local vision model taking minutes over one image never holds a web
 request open. Safe to run more than once: rows are claimed with
 SELECT ... FOR UPDATE SKIP LOCKED, so two workers never take the same receipt.
@@ -14,6 +14,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
 
+from apps.accounts.retention import purge_expired_users
 from apps.receipts.models import Receipt
 from apps.receipts.services import (
     OLLAMA_BASE_URL,
@@ -30,6 +31,8 @@ from apps.receipts.services import (
 MAX_ATTEMPTS = 3
 # Wait this long after Ollama looks down, rather than spinning on the queue.
 BACKOFF_SECONDS = 15
+# How often to delete users whose 24 hours are up, with their receipts.
+PURGE_INTERVAL_SECONDS = 60
 # Shown on the upload page when nothing more specific is known.
 DEFAULT_USER_MESSAGE = 'This receipt could not be read. Please try again.'
 
@@ -74,7 +77,13 @@ class Command(BaseCommand):
                 'Requeued %d receipt(s) left mid-process by an earlier run.'
                 % requeued)
 
+        last_purge = None
         while self._running:
+            if (last_purge is None
+                    or time.monotonic() - last_purge >= PURGE_INTERVAL_SECONDS):
+                last_purge = time.monotonic()
+                self._purge_expired()
+
             receipt = self._claim_one()
 
             if receipt is None:
@@ -84,7 +93,14 @@ class Command(BaseCommand):
                 self._sleep(poll_interval)
                 continue
 
-            paused = self._process(receipt)
+            try:
+                paused = self._process(receipt)
+            except Exception as e:  # noqa: BLE001
+                # Most likely the owner's 24 hours ran out mid-scan and the
+                # receipt was deleted under us. Nothing left to save.
+                self.stderr.write(self.style.WARNING(
+                    'Receipt #%d could not be saved - %s' % (receipt.id, e)))
+                paused = False
             if paused and self._running:
                 # Ollama looked down. Give it room before trying the next one.
                 self._sleep(BACKOFF_SECONDS)
@@ -102,6 +118,12 @@ class Command(BaseCommand):
         deadline = time.monotonic() + seconds
         while self._running and time.monotonic() < deadline:
             time.sleep(min(0.5, max(0.0, deadline - time.monotonic())))
+
+    def _purge_expired(self):
+        deleted = purge_expired_users()
+        if deleted:
+            self.stdout.write('Deleted %d user(s) whose 24 hours were up, '
+                              'with their receipts.' % deleted)
 
     def _reset_orphans(self):
         """
