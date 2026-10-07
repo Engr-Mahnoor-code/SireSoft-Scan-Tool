@@ -1002,29 +1002,14 @@ body.page-login {
 }
 
 .ttl-track {
-    stroke: var(--ttl-color);
-    stroke-opacity: 0.16;
+    stroke: rgba(255, 255, 255, 0.1);
 }
 
-.ttl-knob {
-    fill: #fff;
-    stroke: var(--ttl-color);
-    stroke-width: 1.6;
-    filter: drop-shadow(0 0 2.5px var(--ttl-color));
-    transition: cx 1s linear, cy 1s linear;
-}
 
-.ttl.ttl-kept .ttl-track {
-    stroke: rgba(255, 255, 255, 0.12);
-    stroke-opacity: 1;
-}
 
 .ttl-arc {
     stroke: var(--ttl-color);
-    stroke-linecap: round;
-    stroke-dasharray: 100;
-    stroke-dashoffset: 0;
-    transition: stroke-dashoffset 1s linear, stroke 0.4s ease;
+    transition: stroke 0.4s ease;
     filter: drop-shadow(0 0 3px var(--ttl-color));
 }
 
@@ -1039,6 +1024,7 @@ body.page-login {
 
 .ttl.ttl-urgent .ttl-spin { animation-duration: 1.2s; }
 .ttl.ttl-done .ttl-spin { display: none; }
+.ttl.ttl-done .ttl-arc { stroke-opacity: 0.35; }
 
 .ttl-body {
     display: flex;
@@ -1079,7 +1065,6 @@ body.page-login {
 
 @media (prefers-reduced-motion: reduce) {
     .ttl-spin { animation: none; display: none; }
-    .ttl-arc { transition: none; }
 }
 
 /* ---- Bill Summary ---- */

@@ -8,7 +8,7 @@ from django.utils import timezone
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 
-from apps.accounts.retention import data_lifetime, expires_at
+from apps.accounts.retention import expires_at
 
 from .corrected import save_corrected_copy
 from .forms import ReceiptEditForms
@@ -40,10 +40,7 @@ def history(request):
     for receipt in receipts:
         # Each receipt's own deadline; None for staff-owned ones, which stay.
         receipt.delete_at = expires_at(receipt)
-    return render(request, 'receipts/history.html', {
-        'receipts': receipts,
-        'lifetime_seconds': int(data_lifetime().total_seconds()),
-    })
+    return render(request, 'receipts/history.html', {'receipts': receipts})
 
 
 @login_required
